@@ -1,6 +1,6 @@
-package Servicios;
+package GestionSolicitudes.Servicios;
 import java.util.ArrayList;
-import Dominio.*;
+import GestionSolicitudes.Dominio.*;
 
 public interface ISolicitudQueryService {
     public ArrayList<Solicitud> obtenerHistorial(int usuarioID); 

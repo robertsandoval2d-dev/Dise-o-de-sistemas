@@ -1,4 +1,4 @@
-package Dominio;
+package GestionSolicitudes.Dominio;
 import java.util.Date;
 
 /**

@@ -1,6 +1,6 @@
-package Servicios;
-import Dominio.*;
-import Repositorio.*;
+package GestionSolicitudes.Servicios;
+import GestionSolicitudes.Dominio.*;
+import GestionSolicitudes.Repositorio.*;
 import java.util.ArrayList;
 
 public class SolicitudService implements ISolicitudCommandService, ISolicitudQueryService{

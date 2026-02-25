@@ -1,5 +1,5 @@
-package Repositorio;
-import Dominio.*;
+package GestionSolicitudes.Repositorio;
+import GestionSolicitudes.Dominio.*;
 import java.util.ArrayList;
 
 public interface ISolicitudRepository {
