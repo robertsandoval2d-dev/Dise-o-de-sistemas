@@ -1,13 +1,9 @@
 package com.campus360.solicitudes.Controller;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import java.nio.file.Path;
 
 
 import org.springframework.http.MediaType;
@@ -137,7 +133,7 @@ public ResponseEntity<?> crearSolicitud(
         if (archivos != null && !archivos.isEmpty()) {
             for (MultipartFile file : archivos) {
                 // Guardamos en el disco duro y obtenemos la ruta -  LLAMO AL OTRO METODO DE ABAJO 
-                String rutaFisica = guardarArchivoEnDisco(file);
+                String rutaFisica = servSolicitud.guardarArchivoEnDisco(file);
 
                 // Creamos el objeto Adjunto que se guardará en MySQL
                 Adjunto adj = new Adjunto();
@@ -167,36 +163,36 @@ public ResponseEntity<?> crearSolicitud(
 
 
 
-private String guardarArchivoEnDisco(MultipartFile file) {
-    try {
-        // 1. Definimos la carpeta "uploads" dentro de la raíz del proyecto
-        String rootPath = System.getProperty("user.dir");
-        String nombreCarpeta = "uploads";
+// private String guardarArchivoEnDisco(MultipartFile file) {
+//     try {
+//         // 1. Definimos la carpeta "uploads" dentro de la raíz del proyecto
+//         String rootPath = System.getProperty("user.dir");
+//         String nombreCarpeta = "uploads";
 
-        // 2. Creamos el objeto File para la subcarpeta
-        File directory = new File(rootPath, nombreCarpeta);
+//         // 2. Creamos el objeto File para la subcarpeta
+//         File directory = new File(rootPath, nombreCarpeta);
 
-        // 3. Si la subcarpeta no existe, la creamos
-        if (!directory.exists()) {
-            directory.mkdirs();
-        }
+//         // 3. Si la subcarpeta no existe, la creamos
+//         if (!directory.exists()) {
+//             directory.mkdirs();
+//         }
 
-        // 4. Generar nombre único (Timestamp + nombre original)
-        String nombreUnico = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+//         // 4. Generar nombre único (Timestamp + nombre original)
+//         String nombreUnico = System.currentTimeMillis() + "_" + file.getOriginalFilename();
 
-        // 5. Usamos Paths.get con dos argumentos para que Java ponga el "/" o "\" correcto
-        Path rutaDestino = Paths.get(directory.getAbsolutePath(), nombreUnico);
+//         // 5. Usamos Paths.get con dos argumentos para que Java ponga el "/" o "\" correcto
+//         Path rutaDestino = Paths.get(directory.getAbsolutePath(), nombreUnico);
 
-        // 6. Escribimos los bytes del archivo
-        Files.write(rutaDestino, file.getBytes());
+//         // 6. Escribimos los bytes del archivo
+//         Files.write(rutaDestino, file.getBytes());
 
-        // 7. Retornamos la ruta absoluta para guardarla en la base de datos
-        return rutaDestino.toString();
+//         // 7. Retornamos la ruta absoluta para guardarla en la base de datos
+//         return rutaDestino.toString();
 
-    } catch (IOException e) {
-        throw new RuntimeException("Error al escribir el archivo en el servidor: " + e.getMessage());
-    }
-}
+//     } catch (IOException e) {
+//         throw new RuntimeException("Error al escribir el archivo en el servidor: " + e.getMessage());
+//     }
+// }
 
 
 

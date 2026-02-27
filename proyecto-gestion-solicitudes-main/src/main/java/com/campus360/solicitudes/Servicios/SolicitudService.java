@@ -1,5 +1,10 @@
 package com.campus360.solicitudes.Servicios;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -7,6 +12,7 @@ import java.util.Date;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.campus360.solicitudes.DTOs.ActualizarSolicitudDTO;
 import com.campus360.solicitudes.DTOs.SolicitudCreateDTO;
@@ -175,6 +181,65 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
                       .map(s -> new SolicitudDTO(s))
                       .collect(Collectors.toList());
         
+    }
+
+    
+    
+    public String guardarArchivoEnDisco(MultipartFile file) {
+            try {
+                // 1. Definimos la carpeta "uploads" dentro de la raíz del proyecto
+                String rootPath = System.getProperty("user.dir");
+                String nombreCarpeta = "uploads";
+
+                // 2. Creamos el objeto File para la subcarpeta
+                File directory = new File(rootPath, nombreCarpeta);
+
+                // 3. Si la subcarpeta no existe, la creamos
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                }
+
+                // 4. Generar nombre único (Timestamp + nombre original)
+                String nombreUnico = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+
+                // 5. Usamos Paths.get con dos argumentos para que Java ponga el "/" o "\" correcto
+                Path rutaDestino = Paths.get(directory.getAbsolutePath(), nombreUnico);
+
+                // 6. Escribimos los bytes del archivo
+                Files.write(rutaDestino, file.getBytes());
+
+                // 7. Retornamos la ruta absoluta para guardarla en la base de datos
+                return rutaDestino.toString();
+
+            } catch (IOException e) {
+                throw new RuntimeException("Error al escribir el archivo en el servidor: " + e.getMessage());
+            }
+    }
+
+
+
+    //Esta función llama a guardarArchivosEnDisco (arriba)
+    public List<Adjunto> procesarArchivos(List<MultipartFile> archivos, Solicitud solicitud) {
+    List<Adjunto> lista = new ArrayList<>();
+    
+    if (archivos != null && !archivos.isEmpty()) {
+        for (MultipartFile archivo : archivos) {
+            if (!archivo.isEmpty()) {
+                // Llamamos a tu lógica de escritura física
+                String rutaEnDisco = guardarArchivoEnDisco(archivo);
+                
+                // Creamos el objeto para la Base de Datos
+                Adjunto adj = new Adjunto();
+                adj.setNombreArchivo(archivo.getOriginalFilename());
+                adj.setRuta(rutaEnDisco); // Guardamos el String de la ruta
+                adj.setTipoArchivo(archivo.getContentType());
+                adj.setSolicitud(solicitud); // Vinculamos a la solicitud actual
+                
+                lista.add(adj);
+            }
+        }
+    }
+        return lista;
     }
 
 

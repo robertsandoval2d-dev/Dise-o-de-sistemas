@@ -65,8 +65,6 @@ public class Solicitud {
     private String descripcion;
 
 
-
-
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_usuario_solicitante", nullable = false)
     @JsonIgnoreProperties("solicitudes")
@@ -133,13 +131,14 @@ public class Solicitud {
 
     public void calcularSLA() {
         // Lógica de dominio para determinar el tiempo límite según la prioridad
-        if ("ALTA".equals(this.prioridad)) {
-            this.slaObjetivo = 24; // 24 horas
-        } else {
-            this.slaObjetivo = 72; // 72 horas
-        }
-    }
+         if ("ALTA".equals(this.prioridad)) {
+             this.slaObjetivo = 24; // 24 horas
+         } else {
+             this.slaObjetivo = 72; // 72 horas
+         }
+     }
 
+     
     public void agregarAdjunto(Adjunto a) {
         if (a != null && a.validarTipo()) {
             this.adjuntos.add(a);
