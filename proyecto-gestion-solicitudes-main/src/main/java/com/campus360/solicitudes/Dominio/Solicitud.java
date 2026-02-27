@@ -64,6 +64,16 @@ public class Solicitud {
     @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
 
+    // Añadir estos campos a tus atributos privados
+    @Column(name = "fecha_limite")
+    private Date fechaLimite;
+
+    @Column(name = "tiempo_acumulado_ms")
+    private Long tiempoAcumuladoMs = 0L; // Tiempo en milisegundos ya gastado por la administración
+
+    @Column(name = "fecha_ultimo_cambio")
+    private Date fechaUltimoCambio; // Cuándo entró al estado actual
+
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_usuario_solicitante", nullable = false)
@@ -124,21 +134,55 @@ public class Solicitud {
         return solicitante != null && prioridad != null && !prioridad.isEmpty();
     }
 
-    public void cambiarEstado(String nuevoEstado) {
+
+
+    public void actualizarSeguimientoSLA(String nuevoEstado) {
+        Date ahora = new Date();
+        
+        // Si el estado anterior CONSUMÍA tiempo (ej. PENDIENTE, EN PROCESO)
+        // calculamos cuánto tiempo se gastó hasta este momento.
+        if ("PENDIENTE".equals(this.estado) || "EN PROCESO".equals(this.estado)) {
+            long diferencia = ahora.getTime() - this.fechaUltimoCambio.getTime();
+            this.tiempoAcumuladoMs += diferencia;
+        }
+
+        // Si el NUEVO estado es "activo", recalculamos la fecha límite 
+        // para que el administrativo no pierda los días que el alumno se demoró.
+        if ("PENDIENTE".equals(nuevoEstado) || "EN PROCESO".equals(nuevoEstado)) {
+            long slaTotalMs = (long) this.slaObjetivo * 3600000;
+            long tiempoRestanteMs = slaTotalMs - this.tiempoAcumuladoMs;
+            
+            this.fechaLimite = new Date(ahora.getTime() + tiempoRestanteMs);
+        }
+
         this.estado = nuevoEstado;
-        System.out.println("Estado actualizado a: " + nuevoEstado);
+        this.fechaUltimoCambio = ahora;
     }
 
-    public void calcularSLA() {
-        // Lógica de dominio para determinar el tiempo límite según la prioridad
-         if ("ALTA".equals(this.prioridad)) {
-             this.slaObjetivo = 24; // 24 horas
-         } else {
-             this.slaObjetivo = 72; // 72 horas
-         }
-     }
+    public String getTiempoRestante() {
+        if ("APROBADO".equals(estado) || "RECHAZADO".equals(estado)) return "Completado";
+        
+        long diff = fechaLimite.getTime() - new Date().getTime();
+        
+        if (diff <= 0) return "VENCIDO";
+        
+        long horas = diff / 3600000;
+        long dias = horas / 24;
+        
+        return (dias > 0) ? "Faltan " + dias + " días" : "Faltan " + horas + " horas";
+    }
 
-     
+    public String calcularEstadoSlaAmigable() {
+        if ("OBSERVADO".equalsIgnoreCase(this.estado)) return "PAUSADO";
+        if ("APROBADO".equalsIgnoreCase(this.estado)) return "COMPLETADO";
+        
+        long diff = this.fechaLimite.getTime() - new Date().getTime();
+        return (diff < 0) ? "VENCIDO" : "A TIEMPO";
+    }
+
+
+
+
     public void agregarAdjunto(Adjunto a) {
         if (a != null && a.validarTipo()) {
             this.adjuntos.add(a);
@@ -194,6 +238,32 @@ public class Solicitud {
 
     public Usuario getSolicitante() {
         return solicitante;
+    }
+
+    
+
+    public Date getFechaLimite() {
+        return fechaLimite;
+    }
+
+    public void setFechaLimite(Date fechaLimite) {
+        this.fechaLimite = fechaLimite;
+    }
+
+    public Long getTiempoAcumuladoMs() {
+        return tiempoAcumuladoMs;
+    }
+
+    public void setTiempoAcumuladoMs(Long tiempoAcumuladoMs) {
+        this.tiempoAcumuladoMs = tiempoAcumuladoMs;
+    }
+
+    public Date getFechaUltimoCambio() {
+        return fechaUltimoCambio;
+    }
+
+    public void setFechaUltimoCambio(Date fechaUltimoCambio) {
+        this.fechaUltimoCambio = fechaUltimoCambio;
     }
 
     public void setSolicitante(Usuario solicitante) {

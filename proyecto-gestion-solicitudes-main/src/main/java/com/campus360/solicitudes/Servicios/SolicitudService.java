@@ -24,6 +24,9 @@ import com.campus360.solicitudes.Dominio.Usuario;
 import com.campus360.solicitudes.Repositorio.IAlmacenamiento;
 import com.campus360.solicitudes.Repositorio.ISolicitudRepository;
 import com.campus360.solicitudes.Repositorio.IUsuarioRepository;
+import com.campus360.solicitudes.Servicios.sla.ISlaStrategy;
+import com.campus360.solicitudes.Servicios.sla.SlaStrategyFactory;
+
 
 import jakarta.transaction.Transactional;
 
@@ -56,8 +59,10 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         solicitud.setDescripcion(dto.getDescripcion());
         solicitud.setPrioridad(dto.getPrioridad());
     
-         //Logica para cacular sla
-         solicitud.calcularSLA();
+        //Logica para cacular sla
+        ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
+        strategy.aplicarSla(solicitud);
+
          
          solicitud.setSolicitante(solicitante);
          solicitud.setEstado("PENDIENTE");
@@ -137,6 +142,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             h.setSolicitud(solicitud);
 
             solicitud.getHistorial().add(h);
+            solicitud.actualizarSeguimientoSLA("EN PROCESO");
 
             repoSolicitud.save(solicitud);
 
@@ -183,7 +189,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         
     }
 
-    
+
     
     public String guardarArchivoEnDisco(MultipartFile file) {
             try {
@@ -242,30 +248,79 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         return lista;
     }
 
-
-    public boolean servActualizarSolicitud(Integer idSolicitud,ActualizarSolicitudDTO dto, String rol){
+    public boolean servActualizarSolicitud(Integer idSolicitud,ActualizarSolicitudDTO dto, String rol, List<MultipartFile> nuevosAdjuntos){
         Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElse(null);
-        if ("APROBADOR".equalsIgnoreCase(rol)){
-            solicitud.setEstado(dto.getEstado());
+        
+        String estadoAnterior = solicitud.getEstado();
+        String nuevoEstado = dto.getEstado();
+        
+        // 1. VALIDACIÓN DE PERMISOS POR ROL
+                if ("ESTUDIANTE".equalsIgnoreCase(rol)) {
+                    // El estudiante SOLO puede corregir si la solicitud está OBSERVADA
+                    if (!"OBSERVADO".equalsIgnoreCase(solicitud.getEstado())) {
+                        return false; 
+                    }
+                    // Forzamos que el estado pase a PENDIENTE al subsanar
+                    nuevoEstado = "PENDIENTE";
+                } 
+                else if (!"APROBADOR".equalsIgnoreCase(rol)) {
+                    // Si no es ni estudiante ni aprobador, no tiene permiso
+                    return false;
+                }
 
-            //Se guarda en el historial
-            HistorialEstado h = new HistorialEstado();
-            h.setEstadoAnterior(solicitud.getEstado());
-            h.setEstadoNuevo(dto.getEstado());
-            h.setComentario(dto.getComentario());
-            h.setFechaCambio(new Date());
-            h.setSolicitud(solicitud);
+                List<Adjunto> newAdjuntos = procesarArchivos(nuevosAdjuntos, solicitud);
+                solicitud.getAdjuntos().addAll(newAdjuntos);
 
-            solicitud.getHistorial().add(h);
+                // 2. ACTUALIZACIÓN INTELIGENTE DEL SLA
+                // Aquí es donde el tiempo se reanuda y la fecha límite se "empuja" hacia adelante
+                solicitud.actualizarSeguimientoSLA(nuevoEstado);
+
+
+                // Agregamos nuevos archivos si existen
+                if (nuevosAdjuntos != null) {
+                    for (Adjunto adj : newAdjuntos) {
+                        solicitud.agregarAdjunto(adj);
+                    }
+                }
+
+                // 3. REGISTRO EN EL HISTORIAL
+                HistorialEstado h = new HistorialEstado();
+                h.setEstadoAnterior(estadoAnterior);
+                h.setEstadoNuevo(nuevoEstado);
+                h.setComentario(dto.getComentario());
+                h.setFechaCambio(new Date());
+                h.setSolicitud(solicitud);
+
+                solicitud.getHistorial().add(h);
+
+                // 4. PERSISTENCIA
+                repoSolicitud.save(solicitud);
+                return true;
+     }
+     
+    // public boolean servActualizarSolicitud(Integer idSolicitud,ActualizarSolicitudDTO dto, String rol){
+    //     Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElse(null);
+    //     if ("APROBADOR".equalsIgnoreCase(rol)){
+    //         solicitud.setEstado(dto.getEstado());
+
+    //         //Se guarda en el historial
+    //         HistorialEstado h = new HistorialEstado();
+    //         h.setEstadoAnterior(solicitud.getEstado());
+    //         h.setEstadoNuevo(dto.getEstado());
+    //         h.setComentario(dto.getComentario());
+    //         h.setFechaCambio(new Date());
+    //         h.setSolicitud(solicitud);
+
+    //         solicitud.getHistorial().add(h);
             
-            repoSolicitud.save(solicitud);
-            return true;
-        }
-        else{
-            return false;
-        }
+    //         repoSolicitud.save(solicitud);
+    //         return true;
+    //     }
+    //     else{
+    //         return false;
+    //     }
 
-    }
+    // }
 
     public IUsuarioRepository getRepoUsuario() {
         return repoUsuario;

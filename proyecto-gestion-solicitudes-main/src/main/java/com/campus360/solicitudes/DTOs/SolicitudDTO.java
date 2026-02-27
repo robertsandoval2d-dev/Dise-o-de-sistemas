@@ -15,6 +15,9 @@ public class SolicitudDTO {
     private String prioridad;
     private Date fechaCreacion;
     private String nombreSolicitante;
+    private Date fechaLimite; // Para que vea el calendario
+    private String tiempoRestante; // Ejemplo: "Faltan 2 días" o "Pausado"
+    private String indicadorSla; // Ejemplo: "A TIEMPO", "VENCIDO" o "PAUSADO"
     private List<HistorialDTO> historial;
     private List<AdjuntoDTO> adjuntos;
 
@@ -28,7 +31,19 @@ public class SolicitudDTO {
         this.prioridad = sol.getPrioridad();
         this.fechaCreacion = sol.getFechaCreacion();
         this.nombreSolicitante = sol.getSolicitante().getNombre();
+
+        this.indicadorSla = sol.calcularEstadoSlaAmigable(); 
+        if ("PAUSADO".equals(this.indicadorSla)) {
+        this.tiempoRestante = "Reloj detenido"; 
+        } else if ("COMPLETADO".equals(this.indicadorSla)) {
+            this.tiempoRestante = "Trámite finalizado";
+        } else {
+            // AQUÍ usamos tu método dinámico para mostrar el tiempo real
+            this.tiempoRestante = sol.getTiempoRestante(); 
+        }
         
+
+
         // Convertimos la lista de entidades a lista de DTOs
         this.historial = sol.getHistorial().stream()
                             .map(h -> new HistorialDTO(h)) 
@@ -90,6 +105,25 @@ public class SolicitudDTO {
 
     public void setNombreSolicitante(String nombreSolicitante) {
         this.nombreSolicitante = nombreSolicitante;
+    }
+
+    public Date getFechaLimite() {
+        return fechaLimite;
+    }
+
+
+    public void setFechaLimite(Date fechaLimite) {
+        this.fechaLimite = fechaLimite;
+    }
+
+
+    public String getTiempoRestante() {
+        return tiempoRestante;
+    }
+
+
+    public void setTiempoRestante(String tiempoRestante) {
+        this.tiempoRestante = tiempoRestante;
     }
 
     public List<HistorialDTO> getHistorial() {

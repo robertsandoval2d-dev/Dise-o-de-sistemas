@@ -33,7 +33,7 @@ public class SolicitudServicio extends Solicitud{
     public void validarCreacion() {
         validarTipoServicio();
         validarFechaSolicitada();
-        calcularSLA();
+        // aplicarSla();
     }
 
     public void validarFechaSolicitada() {

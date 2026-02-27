@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 //import org.springframework.web.bind.annotation.RequestParam;
@@ -257,14 +257,17 @@ public ResponseEntity<?> crearSolicitud(
     }
 
     @PatchMapping("/actualizar/{id}")
-    public ResponseEntity<?> actualizarSolicitud(@PathVariable Integer id, @RequestBody ActualizarSolicitudDTO dto,@RequestHeader(value = "X-User-Role", required = true) String rol){
+    public ResponseEntity<?> actualizarSolicitud(@PathVariable Integer id, @RequestPart("datos") ActualizarSolicitudDTO dto,@RequestPart(value = "archivos", required = false) List<MultipartFile> archivos,@RequestHeader(value = "X-User-Role", required = true) String rol){
 
-        boolean actualizado=servSolicitud.servActualizarSolicitud(id,dto, rol);
+        
+        boolean actualizado=servSolicitud.servActualizarSolicitud(id,dto, rol,archivos);
+
         if(actualizado){
-            return ResponseEntity.ok().body("{ \"mensaje\": \"La solicitud ha sido actualizada correctamente\" ");
+            return ResponseEntity.ok().body("{ \"mensaje\": \"La solicitud ha sido actualizada correctamente\"}");
         }
         else{
             return ResponseEntity.status(HttpStatus.CONFLICT).body("\"mensaje\": \"La solicitud NO se pudo actualizar\"");
         }
     }
+
 }

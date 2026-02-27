@@ -72,7 +72,7 @@ public class Usuario {
         if (!this.solicitudes.contains(solicitud)) {
             throw new IllegalArgumentException("No pertenece al usuario.");
         }
-        solicitud.cambiarEstado("ANULADA");
+        solicitud.setEstado("ANULADA");
     }
     // --- Getters y Setters ---
 
