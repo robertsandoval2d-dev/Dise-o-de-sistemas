@@ -18,6 +18,9 @@ import com.campus360.solicitudes.Dominio.Usuario;
 import com.campus360.solicitudes.Repositorio.IAlmacenamiento;
 import com.campus360.solicitudes.Repositorio.ISolicitudRepository;
 import com.campus360.solicitudes.Repositorio.IUsuarioRepository;
+import com.campus360.solicitudes.Servicios.sla.ISlaStrategy;
+import com.campus360.solicitudes.Servicios.sla.SlaStrategyFactory;
+
 
 import jakarta.transaction.Transactional;
 
@@ -50,8 +53,10 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         solicitud.setDescripcion(dto.getDescripcion());
         solicitud.setPrioridad(dto.getPrioridad());
     
-         //Logica para cacular sla
-         solicitud.calcularSLA();
+        //Logica para cacular sla
+        ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
+        strategy.aplicarSla(solicitud);
+
          
          solicitud.setSolicitante(solicitante);
          solicitud.setEstado("PENDIENTE");
