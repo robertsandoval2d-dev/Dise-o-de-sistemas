@@ -2,7 +2,7 @@ package com.campus360.solicitudes.Servicios.sla;
 
 public class SlaStrategyFactory {
 
-   public static SlaStrategy obtenerStrategy(String prioridad) {
+   public static ISlaStrategy obtenerStrategy(String prioridad) {
 
        return switch (prioridad.toUpperCase()) {
            case "ALTA" -> new SlaAltaStrategy();
