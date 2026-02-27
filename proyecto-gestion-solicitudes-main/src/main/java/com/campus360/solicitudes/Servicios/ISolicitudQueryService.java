@@ -1,12 +1,13 @@
-//  package com.campus360.solicitudes.Servicios;
+ package com.campus360.solicitudes.Servicios;
 
 
-// import java.util.List;
+import java.util.List;
 
-// import com.campus360.solicitudes.Dominio.Solicitud;
+import com.campus360.solicitudes.DTOs.SolicitudDTO;
 
-// public interface ISolicitudQueryService {
-//      public List<Solicitud> servObtenerHistorial(Integer usuarioID); 
-//      public Solicitud obtenerDetalleCompleto(int solicitudId); 
 
-//  }
+public interface ISolicitudQueryService {
+     public List<SolicitudDTO> servObtenerHistorial(Integer usuarioID); 
+     public SolicitudDTO obtenerDetalleCompleto(int solicitudId, String rol); 
+
+ }

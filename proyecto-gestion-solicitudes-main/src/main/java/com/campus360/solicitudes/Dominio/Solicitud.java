@@ -61,8 +61,8 @@ public class Solicitud {
     // @Column(name = "id_catalogo")
     // private Integer catalogoId;
 
-    // @Column(name = "descripcion", columnDefinition = "TEXT")
-    // private String descripcion;
+    @Column(name = "descripcion", columnDefinition = "TEXT")
+    private String descripcion;
 
 
 
@@ -107,6 +107,17 @@ public class Solicitud {
             this.fechaCreacion = new Date();
         }
         this.estado = "PENDIENTE";
+        HistorialEstado historia=new HistorialEstado();
+
+        historia.setFechaCambio(fechaCreacion);
+        historia.setEstadoAnterior(null);
+        historia.setEstadoNuevo(estado);
+        historia.setComentario("Creación de historial "+ historia.getIdHistorial());
+        historia.setUsuarioResponsable(solicitante);
+        historia.setSolicitud(this);
+
+        historial.add(historia);
+
         System.out.println("Solicitud creada con fecha: " + fechaCreacion);
     }
 
@@ -212,7 +223,7 @@ public class Solicitud {
     // public Integer getCatalogoId() { return catalogoId; }
     // public void setCatalogoId(Integer catalogoId) { this.catalogoId = catalogoId; }
 
-    // public String getDescripcion() { return descripcion; }
-    // public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public String getDescripcion() { return descripcion; }
+    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
 
 }

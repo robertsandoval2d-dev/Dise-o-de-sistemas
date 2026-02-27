@@ -60,11 +60,7 @@ public class HistorialEstado {
     }
 
     // --- Métodos de Comportamiento ---
-    public void registrarCambio() {
-        // Aquí iría la lógica para persistir el cambio en una base de datos 
-        // o realizar alguna acción específica.
-        System.out.println("Registrando cambio de estado...");
-    }
+
 
     // Getters y Setters
     public int getIdHistorial() {
@@ -113,6 +109,14 @@ public class HistorialEstado {
 
     public void setUsuarioResponsable(Usuario usuarioResponsable) {
         this.usuarioResponsable = usuarioResponsable;
+    }
+
+    public Solicitud getSolicitud() {
+        return solicitud;
+    }
+
+    public void setSolicitud(Solicitud solicitud) {
+        this.solicitud = solicitud;
     }
 
 }

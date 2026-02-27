@@ -23,19 +23,29 @@ public class SolicitudServicio extends Solicitud{
         super();
     }
 
-    public SolicitudServicio(/*Servicio servicio,*/ int idSolicitud, Date fechaCreacion, String estado, String prioridad, int slaObjetivo, 
+    public SolicitudServicio(int idSolicitud, Date fechaCreacion, String estado, String prioridad, int slaObjetivo, 
                      Usuario solicitante, List<Adjunto> adjuntos, List<HistorialEstado> historial) {
         super(idSolicitud, fechaCreacion, estado, prioridad, slaObjetivo,solicitante, adjuntos, historial);
-        //this.servicio = servicio;
     }
 
     // --- Métodos de Comportamiento (+) ---
 
-    public void obtenerReglasServicio() {
-        // Lógica: Consultar las reglas de negocio del servicio
-        /*if (this.servicio != null) {
-            System.out.println("Obteniendo reglas para el servicio.");
-        }*/
+    public void validarCreacion() {
+        validarTipoServicio();
+        validarFechaSolicitada();
+        calcularSLA();
+    }
+
+    public void validarFechaSolicitada() {
+        if (fechaSolicitada.before(new Date())) {
+            throw new IllegalStateException("La fecha solicitada no puede ser pasada.");
+        }
+    }
+
+    public void validarTipoServicio() {
+        if (tipoServicio == null || tipoServicio.isBlank()) {
+            throw new IllegalArgumentException("Debe especificar un tipo de servicio.");
+        }
     }
 
     // --- Getters y Setters ---

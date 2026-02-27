@@ -50,27 +50,30 @@ public class Usuario {
 
     // --- Métodos de Comportamiento ---
 
-    public void crearSolicitud() {
-        // En una arquitectura de capas, aquí solo iría lógica de estado interna
-        // o validaciones de dominio propias del usuario.
-        System.out.println("El usuario " + nombre + " está intentando crear una solicitud.");
+    public boolean esAdmin() {
+        return "ADMIN".equalsIgnoreCase(this.rol);
     }
 
-    public void consultarSolicitudes() {
-        // Nota: En capas, la consulta real la haría el Service llamando a Persistence.
-        // Este método en el dominio suele representar la capacidad del objeto.
+    public boolean puedeCrearSolicitud() {
+        return "ESTUDIANTE".equalsIgnoreCase(this.rol);
     }
 
-    public void anularSolicitud(int idSolicitud) {
-        // Lógica de negocio pura: ej. verificar si el usuario tiene permisos según su Rol
-        System.out.println("Solicitando anulación de la solicitud: " + idSolicitud);
+    public void validarPuedeCrearSolicitud() {
+        if (!this.rol.equals("ESTUDIANTE")) {
+            throw new IllegalStateException("El usuario no tiene permiso para crear solicitudes.");
+        }
+
+        if (this.solicitudes.size() >= 5) {
+            throw new IllegalStateException("Ha alcanzado el límite de solicitudes activas.");
+        }
     }
 
-    public void reportarIncidencia() {
-        // Lógica de dominio para marcar un comportamiento de incidencia
-        System.out.println("Incidencia reportada por el usuario: " + idUsuario);
+    public void anularSolicitud(Solicitud solicitud) {
+        if (!this.solicitudes.contains(solicitud)) {
+            throw new IllegalArgumentException("No pertenece al usuario.");
+        }
+        solicitud.cambiarEstado("ANULADA");
     }
-
     // --- Getters y Setters ---
 
     public int getIdUsuario() {
