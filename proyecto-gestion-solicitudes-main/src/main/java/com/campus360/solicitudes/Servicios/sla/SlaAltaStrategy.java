@@ -5,7 +5,7 @@ import java.util.Date;
 
 import com.campus360.solicitudes.Dominio.Solicitud;
 
-public class SlaAltaStrategy implements SlaStrategy {
+public class SlaAltaStrategy implements ISlaStrategy {
 
   @Override
   public void aplicarSla(Solicitud solicitud) {
