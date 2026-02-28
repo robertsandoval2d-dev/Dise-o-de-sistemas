@@ -294,23 +294,28 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         return solicitud;
     }
 
-    public boolean servAnularSolicitud(int solicitudId){
+    public boolean servAnularSolicitud(int solicitudId, int usuarioID){
          
-        Solicitud porEliminar=repoSolicitud.findById(solicitudId).orElse(null);
+        Solicitud porEliminar = repoSolicitud.findById(solicitudId).orElse(null);
 
+        //Validar que la solicitud existe
+        if(porEliminar == null){
+            return false;
+        }
+        //Validar que es la solicitud correcta del usuario
+        if(porEliminar.getSolicitante().getIdUsuario() != usuarioId) {
+            return false; //No es el dueño de la solicitud
+        }
+        
         String estado=porEliminar.getEstado();
 
-
-         if("PENDIENTE".equals(estado)){
+        if("PENDIENTE".equals(estado)){
             repoSolicitud.deleteById(solicitudId);
             return true;
-         }
-         else{
-            
+        }
+        else{
             return false;
-            
-         }
-                 
+         }  
      }
 
     public List<SolicitudDTO> servListarSolicitudes(){
