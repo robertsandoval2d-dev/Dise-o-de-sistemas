@@ -19,7 +19,7 @@ public class CatalogoClient {
         this.catalogoBaseUrl = catalogoBaseUrl;
     }
 
-    public ServicioInfoResponse obtenerServicio(Long catalogoId) {
+    public ServicioInfoResponse obtenerServicio(int catalogoId) {
 
         String url = catalogoBaseUrl + "/servicios/" + catalogoId;
 

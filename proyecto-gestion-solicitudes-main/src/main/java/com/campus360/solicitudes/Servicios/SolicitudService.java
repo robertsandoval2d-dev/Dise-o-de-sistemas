@@ -2,6 +2,7 @@ package com.campus360.solicitudes.Servicios;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -14,12 +15,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.campus360.solicitudes.Client.AprobacionesClient;
+import com.campus360.solicitudes.Client.CatalogoClient;
+import com.campus360.solicitudes.Client.PagoClient;
 import com.campus360.solicitudes.DTOs.ActualizarSolicitudDTO;
+import com.campus360.solicitudes.DTOs.GenerarOrdenPagoRequest;
+import com.campus360.solicitudes.DTOs.OrdenPagoResponse;
+import com.campus360.solicitudes.DTOs.RequisitoDTO;
+import com.campus360.solicitudes.DTOs.ServicioInfoResponse;
+import com.campus360.solicitudes.DTOs.SolicitudAprobacionDTO;
 import com.campus360.solicitudes.DTOs.SolicitudCreateDTO;
 import com.campus360.solicitudes.DTOs.SolicitudDTO;
 import com.campus360.solicitudes.Dominio.Adjunto;
 import com.campus360.solicitudes.Dominio.HistorialEstado;
 import com.campus360.solicitudes.Dominio.Solicitud;
+import com.campus360.solicitudes.Dominio.SolicitudServicio;
+import com.campus360.solicitudes.Dominio.SolicitudTramite;
 import com.campus360.solicitudes.Dominio.Usuario;
 import com.campus360.solicitudes.Repositorio.IAlmacenamiento;
 import com.campus360.solicitudes.Repositorio.ISolicitudRepository;
@@ -37,82 +48,190 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     private ISolicitudRepository repoSolicitud;
     @Autowired
     private IUsuarioRepository repoUsuario;
-
-    
     @Autowired
     private IAlmacenamiento almacenamiento;
 
-    @Transactional // Garantiza que todo se guarde o nada se guarde
-    public boolean servRegistrarSolicitud(SolicitudCreateDTO dto,ArrayList <Adjunto> adjuntos){
-         boolean registroExitoso = false;
-
-        //CatalogoService.obetnerRequisitos(servicioID)
-        registroExitoso = validarDatosYAdjuntos();
-        //llamada a guardar adjuntos a sistema de almacenamiento
-        almacenamiento.guardarAdjunto();
-
-        Usuario solicitante = obtenerOCrearUsuario(dto.getUsuarioId());
-
-        Solicitud solicitud = new Solicitud();
-        // solicitud.setTipo(dto.getTipo());
-        // solicitud.setCatalogoId(dto.getCatalogoId());
-        solicitud.setDescripcion(dto.getDescripcion());
-        solicitud.setPrioridad(dto.getPrioridad());
-    
-        //Logica para cacular sla
-        ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
-        strategy.aplicarSla(solicitud);
-
-         
-         solicitud.setSolicitante(solicitante);
-         solicitud.setEstado("PENDIENTE");
-         solicitud.crear();
+    // Inyección de Clientes Externos
+    @Autowired
+    private CatalogoClient catalogoClient;
+    @Autowired
+    private PagoClient pagoClient;
+    @Autowired
+    private AprobacionesClient aprobacionesClient;
 
 
-         // 5. LO QUE FALTA: Procesar y vincular adjuntos
-        if (adjuntos != null && !adjuntos.isEmpty()) {
-            for (Adjunto adj : adjuntos) {
-                adj.setSolicitud(solicitud);
-                // Usas tu método 'agregarAdjunto' que ya tienes
-                solicitud.agregarAdjunto(adj); 
+    public SolicitudService() {
+    }
+    public SolicitudService(ISolicitudRepository repoSolicitud, IUsuarioRepository repoUsuario, IAlmacenamiento almacenamiento,
+                            CatalogoClient catalogoClient, PagoClient pagoClient, AprobacionesClient aprobacionesClient) {
+        this.repoSolicitud = repoSolicitud;
+        this.repoUsuario = repoUsuario;
+        this.almacenamiento = almacenamiento;
+        this.catalogoClient = catalogoClient;
+        this.pagoClient = pagoClient;
+        this.aprobacionesClient = aprobacionesClient;
+    }
+
+@Transactional
+    public boolean servRegistrarSolicitud(int usuarioID, String nombre, String rol, SolicitudCreateDTO dto, ArrayList<Adjunto> adjuntos, List<MultipartFile> archivos) {
+        
+        // 1. Obtener información del catálogo y validar requisitos
+        ServicioInfoResponse servicioInfo = catalogoClient.obtenerServicio(dto.getServicioId());
+        if (servicioInfo == null || !servicioInfo.isActivo()) {
+            throw new RuntimeException("El servicio solicitado no existe o no está activo");
+        }
+
+        // 2. Validación dinámica de requisitos
+        if (servicioInfo.getRequisitos() != null) {
+            for (RequisitoDTO req : servicioInfo.getRequisitos()) {
                 
-                // Si el almacenamiento es físico, podrías llamar aquí a:
-                // almacenamiento.guardarAdjunto(adj); 
+                // Solo validamos si el requisito es obligatorio
+                if (req.isObligatorio()) {
+                    
+                    // Caso A: El requisito es un archivo (FILE / ARCHIVO)
+                    if ("FILE".equalsIgnoreCase(req.getTipo()) || "ARCHIVO".equalsIgnoreCase(req.getTipo())) {
+                        // Verificamos que la lista de MultipartFiles contenga al menos un archivo
+                        if (archivos == null || archivos.isEmpty()) {
+                            throw new RuntimeException("Falta adjuntar el archivo obligatorio: " + req.getCampo());
+                        }
+                    } 
+                    
+                    // Caso B: El requisito es un dato de texto (como Sede de Recojo o Hora de Alquiler)
+                    else if ("STRING".equalsIgnoreCase(req.getTipo()) || "DATETIME".equalsIgnoreCase(req.getTipo())) {
+                        // Verificamos que el campo descripción del DTO no esté vacío
+                        if (dto.getDescripcion() == null || dto.getDescripcion().isBlank()) {
+                            throw new RuntimeException("Debe especificar '" + req.getCampo() + "' en la descripción de la solicitud.");
+                        }
+                    }
+                }
             }
         }
 
+        // 2. Preparar la entidad de dominio
+        Usuario solicitante = obtenerOCrearUsuario(usuarioID,nombre,rol);
+        boolean esServicio = servicioInfo.getRequisitos().stream()
+            .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
+
+        Solicitud solicitud;
+        if (esServicio) {
+            SolicitudServicio ss = new SolicitudServicio();
+            ss.setTipoServicio(servicioInfo.getNombre());
+            // Seteamos una fecha por defecto o la extraída de algún lugar
+            ss.setFechaSolicitada(new Date()); 
+            solicitud = ss;
+        } else {
+            SolicitudTramite st = new SolicitudTramite();
+            st.setTipoTramite(servicioInfo.getNombre());
+            solicitud = st;
+        }
+        solicitud.setDescripcion(dto.getDescripcion());
+        solicitud.setPrioridad(dto.getPrioridad());
+        solicitud.setSolicitante(solicitante);
+        solicitud.setEstado("PENDIENTE");
+
+        // Calcular SLA según prioridad
+        ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
+        strategy.aplicarSla(solicitud);
+
+        // Vincular adjuntos a la solicitud
+        if (adjuntos != null) {
+            for (Adjunto adj : adjuntos) {
+                adj.setSolicitud(solicitud);
+                solicitud.agregarAdjunto(adj);
+            }
+        }
+
+        // 3. Persistencia inicial para obtener ID
+        solicitud.crear();
+        solicitud = repoSolicitud.save(solicitud);
+
+        // 4. Lógica de Pago (si el costo es mayor a 0)
+        if (servicioInfo.getCosto() != null && servicioInfo.getCosto().compareTo(BigDecimal.ZERO) > 0) {
+            GenerarOrdenPagoRequest pagoRequest = new GenerarOrdenPagoRequest();
+            pagoRequest.setSolicitudId((long) solicitud.getIdSolicitud());
+            pagoRequest.setMonto(servicioInfo.getCosto());
+            
+            OrdenPagoResponse pagoResponse = pagoClient.generarOrden(pagoRequest);
+            // Aquí podrías guardar el número de orden en la solicitud si fuera necesario
+            System.out.println("Orden de pago generada: " + pagoResponse.getNumeroOrden());
+        }
+
+        // 5. Notificar al módulo de Aprobaciones
+        SolicitudAprobacionDTO aprobacionDTO = new SolicitudAprobacionDTO();
+        aprobacionDTO.setIdSolicitud(solicitud.getIdSolicitud());
+        aprobacionDTO.setEstado(solicitud.getEstado());
+        aprobacionDTO.setFechaCreacion(new Date());
+        aprobacionDTO.setNombreSolicitante(solicitante.getNombre()); // Asumiendo que Usuario tiene getNombre
+
+        boolean enviadoAprobaciones = aprobacionesClient.enviarSolicitudConAdjuntos(aprobacionDTO, archivos);
+
+        if (!enviadoAprobaciones) {
+            // Dependiendo de la regla de negocio, podrías lanzar excepción para hacer rollback
+            throw new RuntimeException("No se pudo sincronizar la solicitud con el módulo de aprobaciones");
+        }
+
+        return true;
+    }
+
+    // @Transactional // Garantiza que todo se guarde o nada se guarde
+    // public boolean servRegistrarSolicitud(int usuarioID, SolicitudCreateDTO dto,ArrayList <Adjunto> adjuntos){
+    //      boolean registroExitoso = false;
+
+    //     //CatalogoService.obetnerRequisitos(servicioID)
+    //     registroExitoso = validarDatosYAdjuntos();
+    //     //llamada a guardar adjuntos a sistema de almacenamiento
+    //     almacenamiento.guardarAdjunto();
+
+    //     Usuario solicitante = obtenerOCrearUsuario(usuarioID);
+
+    //     Solicitud solicitud = new Solicitud();
+    //     // solicitud.setTipo(dto.getTipo());
+    //     // solicitud.setCatalogoId(dto.getCatalogoId());
+    //     solicitud.setDescripcion(dto.getDescripcion());
+    //     solicitud.setPrioridad(dto.getPrioridad());
+    
+    //     //Logica para cacular sla
+    //     ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
+    //     strategy.aplicarSla(solicitud);
+
+         
+    //      solicitud.setSolicitante(solicitante);
+    //      solicitud.setEstado("PENDIENTE");
+    //      solicitud.crear();
+
+
+    //      // 5. LO QUE FALTA: Procesar y vincular adjuntos
+    //     if (adjuntos != null && !adjuntos.isEmpty()) {
+    //         for (Adjunto adj : adjuntos) {
+    //             adj.setSolicitud(solicitud);
+    //             // Usas tu método 'agregarAdjunto' que ya tienes
+    //             solicitud.agregarAdjunto(adj); 
+                
+    //             // Si el almacenamiento es físico, podrías llamar aquí a:
+    //             // almacenamiento.guardarAdjunto(adj); 
+    //         }
+    //     }
 
 
 
-         repoSolicitud.save(solicitud);
+
+    //      repoSolicitud.save(solicitud);
          
 
-         return registroExitoso;
+    //      return registroExitoso;
    
-    }
-
-
-    private boolean validarDatosYAdjuntos(){
-        //lógica de validación
-         return true;
-    }
-
-    private Usuario obtenerOCrearUsuario(int usuarioId) {
-
-    // boolean existeEnSistemaCentral = accesoService.validarUsuario(usuarioId);
-
-    // if (!existeEnSistemaCentral) {
-    //     throw new RuntimeException("Usuario no válido en sistema central");
     // }
 
-    return repoUsuario.findById(usuarioId)
-            .orElseGet(() -> crearUsuarioDesdeSistemaCentral(usuarioId));
-    }
 
-    private Usuario crearUsuarioDesdeSistemaCentral(int usuarioId) {
-        //UsuarioDTO datos = accesoService.obtenerDatosUsuario(usuarioId);
-        Usuario nuevo = new Usuario(/*datos*/);
-        return repoUsuario.save(nuevo);
+    private Usuario obtenerOCrearUsuario(int usuarioId, String nombre, String rol) {
+        return repoUsuario.findById(usuarioId)
+                    .orElseGet(() -> {
+                        Usuario nuevo = new Usuario();
+                        nuevo.setIdUsuario(usuarioId);
+                        nuevo.setNombre(nombre); 
+                        nuevo.setRol(rol);
+                        return repoUsuario.save(nuevo);
+                    });
     }
 
     public List<SolicitudDTO> servObtenerHistorial(Integer usuarioID){ 

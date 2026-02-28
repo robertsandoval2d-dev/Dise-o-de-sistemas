@@ -98,13 +98,17 @@ public class SolicitudController {
 
     @GetMapping
     public List<SolicitudDTO> listarSolicitudes(
-            @RequestHeader("Authorization") String authorizationHeader){
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader){
 
-        String token = authorizationHeader.replace("Bearer ", "");
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new RuntimeException("Token no enviado o inválido");
+        }
 
-        Long usuarioId = jwtUtil.obtenerIdUsuario(token);
+        String token = authorizationHeader.substring(7);
 
-        return servSolicitud.servObtenerHistorial(usuarioId.intValue());
+        int usuarioId = jwtUtil.obtenerIdUsuario(token);
+
+        return servSolicitud.servObtenerHistorial(usuarioId);
     }
 
 
@@ -122,44 +126,53 @@ public class SolicitudController {
 
 
     @PostMapping(value = "/registrar", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
-public ResponseEntity<?> crearSolicitud(
+    public ResponseEntity<?> crearSolicitud(@RequestHeader(value = "Authorization", required = false) String authorizationHeader,
         @RequestPart("solicitud") SolicitudCreateDTO dto,
         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos
-) {
-    try {
-        ArrayList<Adjunto> listaAdjuntosParaBD = new ArrayList<>();
+    ) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new RuntimeException("Token no enviado o inválido");
+        }
 
-        // 1. Procesar los archivos físicos si es que el usuario envió alguno
-        if (archivos != null && !archivos.isEmpty()) {
-            for (MultipartFile file : archivos) {
-                // Guardamos en el disco duro y obtenemos la ruta -  LLAMO AL OTRO METODO DE ABAJO 
-                String rutaFisica = servSolicitud.guardarArchivoEnDisco(file);
+        String token = authorizationHeader.substring(7);
 
-                // Creamos el objeto Adjunto que se guardará en MySQL
-                Adjunto adj = new Adjunto();
-                adj.setNombreArchivo(file.getOriginalFilename());
-                adj.setRuta(rutaFisica);
-                adj.setTipoArchivo(file.getContentType());
+        int usuarioId = jwtUtil.obtenerIdUsuario(token);
+        String nombre = jwtUtil.obtenerNombre(token);
+        String rol = jwtUtil.obtenerRol(token);
+        try {
+            ArrayList<Adjunto> listaAdjuntosParaBD = new ArrayList<>();
 
-                listaAdjuntosParaBD.add(adj);
+            // 1. Procesar los archivos físicos si es que el usuario envió alguno
+            if (archivos != null && !archivos.isEmpty()) {
+                for (MultipartFile file : archivos) {
+                    // Guardamos en el disco duro y obtenemos la ruta -  LLAMO AL OTRO METODO DE ABAJO 
+                    String rutaFisica = servSolicitud.guardarArchivoEnDisco(file);
+
+                    // Creamos el objeto Adjunto que se guardará en MySQL
+                    Adjunto adj = new Adjunto();
+                    adj.setNombreArchivo(file.getOriginalFilename());
+                    adj.setRuta(rutaFisica);
+                    adj.setTipoArchivo(file.getContentType());
+
+                    listaAdjuntosParaBD.add(adj);
+                }
             }
+
+            // 2. Llamar al servicio con el DTO y la lista de objetos Adjunto
+            boolean exito = servSolicitud.servRegistrarSolicitud(usuarioId, nombre, rol, dto, listaAdjuntosParaBD,archivos);
+
+            if (exito) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                        .body("{\"mensaje\": \"Solicitud creada con éxito y archivos guardados\"}");
+            } else {
+                return ResponseEntity.badRequest().body("{\"error\": \"No se pudo procesar la solicitud\"}");
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\": \"" + e.getMessage() + "\"}");
         }
-
-        // 2. Llamar al servicio con el DTO y la lista de objetos Adjunto
-        boolean exito = servSolicitud.servRegistrarSolicitud(dto, listaAdjuntosParaBD);
-
-        if (exito) {
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body("{\"mensaje\": \"Solicitud creada con éxito y archivos guardados\"}");
-        } else {
-            return ResponseEntity.badRequest().body("{\"error\": \"No se pudo procesar la solicitud\"}");
-        }
-
-    } catch (Exception e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("{\"error\": \"" + e.getMessage() + "\"}");
     }
-}
 
 
 
@@ -256,17 +269,38 @@ public ResponseEntity<?> crearSolicitud(
         return ResponseEntity.ok().body(solicitudes);
     }
 
-    @PatchMapping("/actualizar/{id}")
-    public ResponseEntity<?> actualizarSolicitud(@PathVariable Integer id, @RequestPart("datos") ActualizarSolicitudDTO dto,@RequestPart(value = "archivos", required = false) List<MultipartFile> archivos,@RequestHeader(value = "X-User-Role", required = true) String rol){
+    
+
+    // @PatchMapping("/actualizar/{id}")
+    // public ResponseEntity<?> actualizarSolicitud(@PathVariable Integer id, @RequestPart("datos") ActualizarSolicitudDTO dto,@RequestPart(value = "archivos", required = false) List<MultipartFile> archivos,@RequestHeader(value = "X-User-Role", required = true) String rol){
 
         
-        boolean actualizado=servSolicitud.servActualizarSolicitud(id,dto, rol,archivos);
+    //     boolean actualizado=servSolicitud.servActualizarSolicitud(id,dto, rol,archivos);
 
-        if(actualizado){
+    //     if(actualizado){
+    //         return ResponseEntity.ok().body("{ \"mensaje\": \"La solicitud ha sido actualizada correctamente\"}");
+    //     }
+    //     else{
+    //         return ResponseEntity.status(HttpStatus.CONFLICT).body("\"mensaje\": \"La solicitud NO se pudo actualizar\"");
+    //     }
+    // }
+
+    @PatchMapping("/actualizar/{id}")
+    public ResponseEntity<?> actualizarSolicitud(
+        @RequestHeader(value = "Authorization") String authHeader,
+        @PathVariable Integer id, 
+        @RequestPart("datos") ActualizarSolicitudDTO dto,
+        @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos) {
+
+        String token = authHeader.substring(7);
+        String rol = jwtUtil.obtenerRol(token); // Obtenemos el rol del TOKEN, no de un header manual
+
+        boolean actualizado = servSolicitud.servActualizarSolicitud(id, dto, rol, archivos);
+
+        if (actualizado) {
             return ResponseEntity.ok().body("{ \"mensaje\": \"La solicitud ha sido actualizada correctamente\"}");
-        }
-        else{
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("\"mensaje\": \"La solicitud NO se pudo actualizar\"");
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("{\"mensaje\": \"No tienes permisos para esta acción\"}");
         }
     }
 

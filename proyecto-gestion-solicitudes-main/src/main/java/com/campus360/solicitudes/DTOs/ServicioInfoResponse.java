@@ -5,7 +5,7 @@ import java.util.List;
 
 public class ServicioInfoResponse {
 
-    private Long id;
+    private int id;
     private String nombre;
     private String descripcion;
     private BigDecimal costo;
@@ -15,7 +15,7 @@ public class ServicioInfoResponse {
     public ServicioInfoResponse() {
     }
 
-    public Long getId() {
+    public int getId() {
         return id;
     }
 

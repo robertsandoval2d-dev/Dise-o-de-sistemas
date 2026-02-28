@@ -2,9 +2,9 @@ package com.campus360.solicitudes.DTOs;
 
 public class RequisitoDTO {
 
-    private String campo;
-    private String tipo; // string, number, file, etc
-    private boolean obligatorio;
+    private String campo; //fecha_hora_alquiler, Sede de Recojo
+    private String tipo; // STRING, ARCHIVO, DATETIME
+    private boolean obligatorio; //true. false
     
     public RequisitoDTO() {
     }

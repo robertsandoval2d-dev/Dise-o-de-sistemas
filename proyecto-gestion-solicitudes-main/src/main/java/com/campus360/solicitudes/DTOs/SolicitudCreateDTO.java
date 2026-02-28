@@ -1,27 +1,24 @@
 package com.campus360.solicitudes.DTOs;
 
 public class SolicitudCreateDTO {
-    private String tipo;
+    private int servicioId;
     private String prioridad;   
     private String descripcion; 
-    private Integer usuarioId; 
 
     public SolicitudCreateDTO() {}
     
-    public SolicitudCreateDTO(String tipo, String prioridad, String descripcion,
-            Integer usuarioId) {
-        this.tipo = tipo;
+    public SolicitudCreateDTO(int servicioId, String prioridad, String descripcion) {
+        this.servicioId = servicioId;
         this.prioridad = prioridad;
         this.descripcion = descripcion;
-        this.usuarioId = usuarioId;
     }
 
-     public String getTipo() {
-        return tipo;
+     public int getServicioId() {
+        return servicioId;
     }
 
-    public void setTipo(String tipo) {
-        this.tipo = tipo;
+    public void setServicioId(int servicioId) {
+        this.servicioId = servicioId;
     }
 
     public String getPrioridad() {
@@ -40,13 +37,6 @@ public class SolicitudCreateDTO {
         this.descripcion = descripcion;
     }
 
-    public Integer getUsuarioId() {
-        return usuarioId;
-    }
-
-    public void setUsuarioId(Integer usuarioId) {
-        this.usuarioId = usuarioId;
-    }
 
     
 

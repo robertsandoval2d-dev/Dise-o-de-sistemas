@@ -23,8 +23,8 @@ public class JwtUtil {
                 .getBody();
     }
 
-    public Long obtenerIdUsuario(String token) {
-        return validarToken(token).get("idUsuario", Long.class);
+    public int obtenerIdUsuario(String token) {
+        return validarToken(token).get("idUsuario", Integer.class);
     }
 
     public String obtenerRol(String token) {
