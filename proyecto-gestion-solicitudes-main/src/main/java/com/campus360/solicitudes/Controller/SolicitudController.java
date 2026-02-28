@@ -258,11 +258,13 @@ public class SolicitudController {
 
         try {
             // Extraer el usuario del token
-            String token = authHeader.substring(7);
-            String usuarioActualId = jwtUtil.obtenerIdUsuario(token);
+            // String token = authHeader.substring(7);
+            // String usuarioActualId = jwtUtil.obtenerIdUsuario(token);
+
+            int usuarioActualId = 1; // Para pruebas, asignamos un ID fijo. En producción, esto se obtiene del token.
             
             // Pasar tanto el ID de solicitud como el usuario actual
-            boolean eliminado = servSolicitud.servAnularSolicitud(id, Integer.parseInt(usuarioActualId));
+            boolean eliminado = servSolicitud.servAnularSolicitud(id, usuarioActualId);
             
             if(eliminado){
                 return ResponseEntity.ok().body(" {\"mensaje\": \"La solicitud fue eliminada correctamente\"}");

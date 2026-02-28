@@ -303,7 +303,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             return false;
         }
         //Validar que es la solicitud correcta del usuario
-        if(porEliminar.getSolicitante().getIdUsuario() != usuarioId) {
+        if(porEliminar.getSolicitante().getIdUsuario() != usuarioID) {
             return false; //No es el dueño de la solicitud
         }
         
