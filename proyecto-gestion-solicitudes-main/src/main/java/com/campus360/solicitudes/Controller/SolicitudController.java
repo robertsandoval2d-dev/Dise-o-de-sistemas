@@ -248,18 +248,25 @@ public class SolicitudController {
     // }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> anularSolicitud(@PathVariable Integer id){
+    public ResponseEntity<?> anularSolicitud(@RequestHeader(value = "Authorization") String authHeader, @PathVariable Integer id){
 
-        boolean eliminado=servSolicitud.servAnularSolicitud(id);
-
-        if(eliminado){
-            return ResponseEntity.ok().body(" {\"mensaje\": \"La solicitud fue eliminada correctamente\"}");
+        try {
+            // Extraer el usuario del token
+            String token = authHeader.substring(7);
+            String usuarioActualId = jwtUtil.obtenerIdUsuario(token);
+            
+            // Pasar tanto el ID de solicitud como el usuario actual
+            boolean eliminado = servSolicitud.servAnularSolicitud(id, Integer.parseInt(usuarioActualId));
+            
+            if(eliminado){
+                return ResponseEntity.ok().body(" {\"mensaje\": \"La solicitud fue eliminada correctamente\"}");
+            }
+            else{
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(" {\"mensaje\": \"No se pudo eliminar la solicitud\"}");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(" {\"error\": \"No autorizado\"}");
         }
-        else{
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(" {\"mensaje\": \"No se pudo eliminar la solicitud\"}");
-        }
-        
-
     }
 
 
