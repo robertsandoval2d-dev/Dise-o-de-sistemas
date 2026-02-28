@@ -32,7 +32,7 @@ public class PagoClient {
             
     //         return response.getStatusCode().is2xxSuccessful();
     //     } catch (Exception e) {
-    //         System.err.println("Error al contactar módulo de pagos: " + e.getMessage());
+    //         throw new RuntimeException("Error al contactar módulo de pagos", e);
     //         return false;
     //     }
     // }
