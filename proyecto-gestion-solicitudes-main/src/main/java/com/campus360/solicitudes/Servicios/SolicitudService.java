@@ -107,8 +107,20 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             }
         }
 
-        // 2. Preparar la entidad de dominio
-        Usuario solicitante = obtenerOCrearUsuario(usuarioID,nombre,rol);
+        // 3. OBTENER USUARIO (Modificado)
+        // Usamos getReferenceById si ya existe para evitar cargar todo el objeto y sus colecciones, 
+        // esto evita el error de "Row was already updated"
+        Usuario solicitante;
+        if (repoUsuario.existsById(usuarioID)) {
+            solicitante = repoUsuario.getReferenceById(usuarioID);
+        } else {
+            Usuario nuevo = new Usuario();
+            nuevo.setIdUsuario(usuarioID);
+            nuevo.setNombre(nombre); 
+            nuevo.setRol(rol);
+            // Guardamos pero NO usamos flush aquí para dejar que la transacción gestione el cierre
+            solicitante = repoUsuario.save(nuevo);
+        }
         boolean esServicio = servicioInfo.getRequisitos().stream()
             .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
 
@@ -141,22 +153,24 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             }
         }
 
-        // 3. Persistencia inicial para obtener ID
+        // 4. Persistencia inicial para obtener ID
         solicitud.crear();
         solicitud = repoSolicitud.save(solicitud);
 
-        // 4. Lógica de Pago (si el costo es mayor a 0)
+        // 5. Lógica de Pago (si el costo es mayor a 0)
         if (servicioInfo.getCosto() != null && servicioInfo.getCosto().compareTo(BigDecimal.ZERO) > 0) {
             GenerarOrdenPagoRequest pagoRequest = new GenerarOrdenPagoRequest();
-            pagoRequest.setSolicitudId((long) solicitud.getIdSolicitud());
-            pagoRequest.setMonto(servicioInfo.getCosto());
-            
-            OrdenPagoResponse pagoResponse = pagoClient.generarOrden(pagoRequest);
-            // Aquí podrías guardar el número de orden en la solicitud si fuera necesario
-            System.out.println("Orden de pago generada: " + pagoResponse.getNumeroOrden());
+            pagoRequest.setSolicitudId( solicitud.getIdSolicitud());
+            pagoRequest.setMonto(servicioInfo.getCosto());    
+            // Solo notificamos y esperamos confirmación de recepción
+            if (pagoClient.generarOrden(pagoRequest)) {
+                solicitud.setEstado("PENDIENTE_PAGO");
+            } else {
+                throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud.");
+            }
         }
 
-        // 5. Notificar al módulo de Aprobaciones
+        // 6. Notificar al módulo de Aprobaciones
         SolicitudAprobacionDTO aprobacionDTO = new SolicitudAprobacionDTO();
         aprobacionDTO.setIdSolicitud(solicitud.getIdSolicitud());
         aprobacionDTO.setEstado(solicitud.getEstado());
@@ -230,7 +244,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
                         nuevo.setIdUsuario(usuarioId);
                         nuevo.setNombre(nombre); 
                         nuevo.setRol(rol);
-                        return repoUsuario.save(nuevo);
+                        return repoUsuario.saveAndFlush(nuevo);
                     });
     }
 

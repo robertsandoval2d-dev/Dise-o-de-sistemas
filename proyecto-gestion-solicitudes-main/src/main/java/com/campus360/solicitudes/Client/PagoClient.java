@@ -21,17 +21,26 @@ public class PagoClient {
         this.pagoBaseUrl = pagoBaseUrl;
     }
 
-    public OrdenPagoResponse generarOrden(GenerarOrdenPagoRequest request) {
-
-        String url = pagoBaseUrl + "/ordenes";
-
-        ResponseEntity<OrdenPagoResponse> response =
-                restTemplate.postForEntity(
-                        url,
-                        request,
-                        OrdenPagoResponse.class
-                );
-
-        return response.getBody();
+    public boolean generarOrden(GenerarOrdenPagoRequest request) {
+    //     try {
+    //         // Enviamos el request que ya tiene el solicitudId y el monto
+    //         String url = pagoBaseUrl + "/ordenes";
+            
+    //         // Si el servicio responde 200 OK, asumimos que el módulo de pago
+    //         // ya asoció internamente nuestra solicitud con su orden.
+    //         ResponseEntity<Void> response = restTemplate.postForEntity(url, request, Void.class);
+            
+    //         return response.getStatusCode().is2xxSuccessful();
+    //     } catch (Exception e) {
+    //         System.err.println("Error al contactar módulo de pagos: " + e.getMessage());
+    //         return false;
+    //     }
+    // }
+    System.out.println("[MOCK PAGO] Recibida orden para Solicitud ID: " + request.getSolicitudId());
+        System.out.println("[MOCK PAGO] Monto a procesar: " + request.getMonto());
+        
+        // Simulamos que el módulo de pago recibió la solicitud y la registró exitosamente
+        return true;
     }
+
 }

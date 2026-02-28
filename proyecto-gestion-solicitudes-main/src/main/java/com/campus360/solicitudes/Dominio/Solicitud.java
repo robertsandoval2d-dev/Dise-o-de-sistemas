@@ -75,7 +75,7 @@ public class Solicitud {
     private Date fechaUltimoCambio; // Cuándo entró al estado actual
 
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.EAGER, cascade = {CascadeType.MERGE, CascadeType.REFRESH})
     @JoinColumn(name = "id_usuario_solicitante", nullable = false)
     @JsonIgnoreProperties("solicitudes")
     private Usuario solicitante; 

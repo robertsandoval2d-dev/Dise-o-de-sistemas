@@ -4,15 +4,15 @@ import java.math.BigDecimal;
 
 public class GenerarOrdenPagoRequest {
 
-    private Long solicitudId;
+    private Integer solicitudId;
     private BigDecimal monto;
 
     // getters y setters
-    public Long getSolicitudId() {
+    public Integer getSolicitudId() {
         return solicitudId;
     }
 
-    public void setSolicitudId(Long solicitudId) {
+    public void setSolicitudId(Integer solicitudId) {
         this.solicitudId = solicitudId;
     }
 

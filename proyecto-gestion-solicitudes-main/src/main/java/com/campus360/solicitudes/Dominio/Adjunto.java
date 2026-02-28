@@ -79,7 +79,7 @@ public class Adjunto {
         }
         
         String ext = tipoArchivo.toLowerCase().trim();
-        boolean esValido = ext.equals("pdf") || ext.equals("jpg") || 
+        boolean esValido = ext.contains("pdf") || ext.equals("jpg") || 
                           ext.equals("png") || ext.equals("docx") || 
                           ext.equals("xlsx");
         

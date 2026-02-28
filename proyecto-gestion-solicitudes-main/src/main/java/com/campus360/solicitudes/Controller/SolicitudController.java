@@ -104,10 +104,10 @@ public class SolicitudController {
             throw new RuntimeException("Token no enviado o inválido");
         }
 
-        String token = authorizationHeader.substring(7);
+        // String token = authorizationHeader.substring(7);
 
-        int usuarioId = jwtUtil.obtenerIdUsuario(token);
-
+        // int usuarioId = jwtUtil.obtenerIdUsuario(token);
+        int usuarioId = 1; // Para pruebas, asignamos un ID fijo. En producción, esto se obtiene del token.
         return servSolicitud.servObtenerHistorial(usuarioId);
     }
 
@@ -130,15 +130,20 @@ public class SolicitudController {
         @RequestPart("solicitud") SolicitudCreateDTO dto,
         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos
     ) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new RuntimeException("Token no enviado o inválido");
-        }
+        // if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+        //     throw new RuntimeException("Token no enviado o inválido");
+        // }
 
-        String token = authorizationHeader.substring(7);
+        // String token = authorizationHeader.substring(7);
 
-        int usuarioId = jwtUtil.obtenerIdUsuario(token);
-        String nombre = jwtUtil.obtenerNombre(token);
-        String rol = jwtUtil.obtenerRol(token);
+        // int usuarioId = jwtUtil.obtenerIdUsuario(token);
+        // String nombre = jwtUtil.obtenerNombre(token);
+        // String rol = jwtUtil.obtenerRol(token);
+       
+        //  Para fines de prueba, si no se envía el token, se asignan valores por defecto. En producción, esto debería ser un error.
+        int usuarioId = 1; 
+        String nombre = "Cesar Alberto Pérez García";
+        String rol = "ESTUDIANTE";
         try {
             ArrayList<Adjunto> listaAdjuntosParaBD = new ArrayList<>();
 
@@ -153,6 +158,7 @@ public class SolicitudController {
                     adj.setNombreArchivo(file.getOriginalFilename());
                     adj.setRuta(rutaFisica);
                     adj.setTipoArchivo(file.getContentType());
+                    adj.setTamañoKB(file.getSize() / 1024); // Tamaño en KB
 
                     listaAdjuntosParaBD.add(adj);
                 }
@@ -292,8 +298,9 @@ public class SolicitudController {
         @RequestPart("datos") ActualizarSolicitudDTO dto,
         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos) {
 
-        String token = authHeader.substring(7);
-        String rol = jwtUtil.obtenerRol(token); // Obtenemos el rol del TOKEN, no de un header manual
+        // String token = authHeader.substring(7);
+        // String rol = jwtUtil.obtenerRol(token); // Obtenemos el rol del TOKEN, no de un header manual
+        String rol = "ESTUDIANTE"; // Para pruebas, asignamos un rol fijo. En producción, esto se obtiene del token.
 
         boolean actualizado = servSolicitud.servActualizarSolicitud(id, dto, rol, archivos);
 

@@ -17,15 +17,11 @@ import lombok.ToString;
 public class Usuario {
     // Atributos privados según el diagrama UML
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name="id_usuario")
     private int idUsuario;
 
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
-
-    @Column(name = "email", nullable = false, unique = true, length = 150)
-    private String email;
 
     @Column(name = "rol", length = 30)
     private String rol; 
@@ -41,10 +37,9 @@ public class Usuario {
     }
 
     // Constructor con parámetros
-    public Usuario(int idUsuario, String nombre, String email, String rol) {
+    public Usuario(int idUsuario, String nombre, String rol) {
         this.idUsuario = idUsuario;
         this.nombre = nombre;
-        this.email = email;
         this.rol = rol;
     }
 
@@ -90,14 +85,6 @@ public class Usuario {
 
     public void setNombre(String nombre) {
         this.nombre = nombre;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     public String getRol() {

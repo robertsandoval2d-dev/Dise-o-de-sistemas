@@ -19,24 +19,48 @@ public class ServicioInfoResponse {
         return id;
     }
 
+    public void setId(int id) {
+        this.id = id;
+    }
+
     public String getNombre() {
         return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
     }
 
     public String getDescripcion() {
         return descripcion;
     }
 
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
     public BigDecimal getCosto() {
         return costo;
+    }
+
+    public void setCosto(BigDecimal costo) {
+        this.costo = costo;
     }
 
     public boolean isActivo() {
         return activo;
     }
 
+    public void setActivo(boolean activo) {
+        this.activo = activo;
+    }
+
     public List<RequisitoDTO> getRequisitos() {
         return requisitos;
+    }
+
+    public void setRequisitos(List<RequisitoDTO> requisitos) {
+        this.requisitos = requisitos;
     }
 
 }

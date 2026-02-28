@@ -31,57 +31,85 @@ public class AprobacionesClient {
             SolicitudAprobacionDTO dto,
             List<MultipartFile> archivos) {
 
+        // try {
+        //     MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+        //     // Parte JSON
+        //     HttpHeaders jsonHeaders = new HttpHeaders();
+        //     jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+        //     HttpEntity<SolicitudAprobacionDTO> jsonPart =
+        //             new HttpEntity<>(dto, jsonHeaders);
+
+        //     body.add("solicitud", jsonPart);
+
+        //     // Parte archivos
+        //     if (archivos != null && !archivos.isEmpty()) {
+        //         for (MultipartFile file : archivos) {
+        //             HttpHeaders fileHeaders = new HttpHeaders();
+        //             fileHeaders.setContentType(
+        //                     MediaType.parseMediaType(file.getContentType())
+        //             );
+
+        //             HttpEntity<Resource> filePart = new HttpEntity<>(
+        //                     new ByteArrayResource(file.getBytes()) {
+        //                         @Override
+        //                         public String getFilename() {
+        //                             return file.getOriginalFilename();
+        //                         }
+        //                     },
+        //                     fileHeaders
+        //             );
+
+        //             body.add("archivos", filePart);
+        //         }
+        //     }
+
+        //     // Headers generales
+        //     HttpHeaders headers = new HttpHeaders();
+        //     headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        //     HttpEntity<MultiValueMap<String, Object>> requestEntity =
+        //             new HttpEntity<>(body, headers);
+
+        //     // URL completa
+        //     String url = aprobacionesBaseUrl + "/registrar";
+
+        //     ResponseEntity<String> response =
+        //             restTemplate.postForEntity(url, requestEntity, String.class);
+
+        //     return response.getStatusCode().is2xxSuccessful();
+
+        // } catch (Exception e) {
+        //     throw new RuntimeException("Error enviando solicitud a aprobaciones", e);
+        // }
+
+
+
         try {
-            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-
-            // Parte JSON
-            HttpHeaders jsonHeaders = new HttpHeaders();
-            jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<SolicitudAprobacionDTO> jsonPart =
-                    new HttpEntity<>(dto, jsonHeaders);
-
-            body.add("solicitud", jsonPart);
-
-            // Parte archivos
+            // --- LÓGICA DE SIMULACIÓN (MOCK) ---
+            System.out.println("[MOCK APROBACIONES] Recibiendo Solicitud ID: " + dto.getIdSolicitud());
+            System.out.println("[MOCK APROBACIONES] Solicitante: " + dto.getNombreSolicitante());
+            
             if (archivos != null && !archivos.isEmpty()) {
-                for (MultipartFile file : archivos) {
-                    HttpHeaders fileHeaders = new HttpHeaders();
-                    fileHeaders.setContentType(
-                            MediaType.parseMediaType(file.getContentType())
-                    );
-
-                    HttpEntity<Resource> filePart = new HttpEntity<>(
-                            new ByteArrayResource(file.getBytes()) {
-                                @Override
-                                public String getFilename() {
-                                    return file.getOriginalFilename();
-                                }
-                            },
-                            fileHeaders
-                    );
-
-                    body.add("archivos", filePart);
-                }
+                System.out.println("[MOCK APROBACIONES] Se recibieron " + archivos.size() + " archivos adjuntos.");
+                archivos.forEach(file -> 
+                    System.out.println(" - Archivo detectado: " + file.getOriginalFilename() + " (" + file.getContentType() + ")")
+                );
+            } else {
+                System.out.println("[MOCK APROBACIONES] No se enviaron archivos adjuntos.");
             }
 
-            // Headers generales
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            // Devolvemos true para indicar que el módulo de aprobaciones "recibió" todo
+            return true;
 
-            HttpEntity<MultiValueMap<String, Object>> requestEntity =
-                    new HttpEntity<>(body, headers);
-
-            // URL completa
-            String url = aprobacionesBaseUrl + "/registrar";
-
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(url, requestEntity, String.class);
-
-            return response.getStatusCode().is2xxSuccessful();
+            /* // CÓDIGO REAL (Para cuando el otro microservicio esté activo):
+            // (Aquí iría toda la lógica de LinkedMultiValueMap y ByteArrayResource que tenías)
+            */
 
         } catch (Exception e) {
-            throw new RuntimeException("Error enviando solicitud a aprobaciones", e);
+            System.err.println("[ERROR MOCK] Error en el flujo de aprobaciones: " + e.getMessage());
+            return false;
         }
     }
 }
