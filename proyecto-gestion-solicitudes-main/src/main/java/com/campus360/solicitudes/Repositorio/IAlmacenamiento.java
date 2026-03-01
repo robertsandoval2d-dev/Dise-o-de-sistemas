@@ -1,5 +1,6 @@
 package com.campus360.solicitudes.Repositorio;
 
+import org.springframework.web.multipart.MultipartFile;
 public interface IAlmacenamiento {
-    public void guardarAdjunto();
+    public String guardarArchivoEnDisco(MultipartFile file);
 }

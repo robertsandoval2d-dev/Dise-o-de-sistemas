@@ -1,11 +1,7 @@
 package com.campus360.solicitudes.Servicios;
 
-import java.io.File;
-import java.io.IOException;
+
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,7 +16,6 @@ import com.campus360.solicitudes.Client.CatalogoClient;
 import com.campus360.solicitudes.Client.PagoClient;
 import com.campus360.solicitudes.DTOs.ActualizarSolicitudDTO;
 import com.campus360.solicitudes.DTOs.GenerarOrdenPagoRequest;
-import com.campus360.solicitudes.DTOs.OrdenPagoResponse;
 import com.campus360.solicitudes.DTOs.RequisitoDTO;
 import com.campus360.solicitudes.DTOs.ServicioInfoResponse;
 import com.campus360.solicitudes.DTOs.SolicitudAprobacionDTO;
@@ -73,7 +68,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     }
 
 @Transactional
-    public boolean servRegistrarSolicitud(int usuarioID, String nombre, String rol, SolicitudCreateDTO dto, ArrayList<Adjunto> adjuntos, List<MultipartFile> archivos) {
+    public boolean servRegistrarSolicitud(int usuarioID, String nombre, String rol, SolicitudCreateDTO dto, List<MultipartFile> archivos) {
         
         // 1. Obtener información del catálogo y validar requisitos
         ServicioInfoResponse servicioInfo = catalogoClient.obtenerServicio(dto.getServicioId());
@@ -145,12 +140,11 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
         strategy.aplicarSla(solicitud);
 
+        List<Adjunto> adjuntos = procesarArchivos(archivos, solicitud);
+
         // Vincular adjuntos a la solicitud
         if (adjuntos != null) {
-            for (Adjunto adj : adjuntos) {
-                adj.setSolicitud(solicitud);
-                solicitud.agregarAdjunto(adj);
-            }
+            solicitud.setAdjuntos(adjuntos);
         }
 
         // 4. Persistencia inicial para obtener ID
@@ -164,7 +158,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             pagoRequest.setMonto(servicioInfo.getCosto());    
             // Solo notificamos y esperamos confirmación de recepción
             if (pagoClient.generarOrden(pagoRequest)) {
-                solicitud.setEstado("PENDIENTE_PAGO");
+                solicitud.setEstado("PENDIENTE");
             } else {
                 throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud.");
             }
@@ -187,66 +181,6 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         return true;
     }
 
-    // @Transactional // Garantiza que todo se guarde o nada se guarde
-    // public boolean servRegistrarSolicitud(int usuarioID, SolicitudCreateDTO dto,ArrayList <Adjunto> adjuntos){
-    //      boolean registroExitoso = false;
-
-    //     //CatalogoService.obetnerRequisitos(servicioID)
-    //     registroExitoso = validarDatosYAdjuntos();
-    //     //llamada a guardar adjuntos a sistema de almacenamiento
-    //     almacenamiento.guardarAdjunto();
-
-    //     Usuario solicitante = obtenerOCrearUsuario(usuarioID);
-
-    //     Solicitud solicitud = new Solicitud();
-    //     // solicitud.setTipo(dto.getTipo());
-    //     // solicitud.setCatalogoId(dto.getCatalogoId());
-    //     solicitud.setDescripcion(dto.getDescripcion());
-    //     solicitud.setPrioridad(dto.getPrioridad());
-    
-    //     //Logica para cacular sla
-    //     ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
-    //     strategy.aplicarSla(solicitud);
-
-         
-    //      solicitud.setSolicitante(solicitante);
-    //      solicitud.setEstado("PENDIENTE");
-    //      solicitud.crear();
-
-
-    //      // 5. LO QUE FALTA: Procesar y vincular adjuntos
-    //     if (adjuntos != null && !adjuntos.isEmpty()) {
-    //         for (Adjunto adj : adjuntos) {
-    //             adj.setSolicitud(solicitud);
-    //             // Usas tu método 'agregarAdjunto' que ya tienes
-    //             solicitud.agregarAdjunto(adj); 
-                
-    //             // Si el almacenamiento es físico, podrías llamar aquí a:
-    //             // almacenamiento.guardarAdjunto(adj); 
-    //         }
-    //     }
-
-
-
-
-    //      repoSolicitud.save(solicitud);
-         
-
-    //      return registroExitoso;
-   
-    // }
-
-
-    private Usuario obtenerOCrearUsuario(int usuarioId, String nombre, String rol) {
-        return repoUsuario.findById(usuarioId)
-                    .orElseGet(() -> {
-                        Usuario nuevo = new Usuario();
-                        nuevo.setIdUsuario(usuarioId);
-                        nuevo.setNombre(nombre); 
-                        nuevo.setRol(rol);
-                        return repoUsuario.saveAndFlush(nuevo);
-                    });
-    }
 
     public List<SolicitudDTO> servObtenerHistorial(Integer usuarioID){ 
         List<Solicitud> solicitudes = repoSolicitud.findBySolicitanteIdUsuario(usuarioID);
@@ -300,10 +234,12 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
 
         //Validar que la solicitud existe
         if(porEliminar == null){
+            System.out.println("La solicitud con ID " + solicitudId + " no existe.");
             return false;
         }
         //Validar que es la solicitud correcta del usuario
         if(porEliminar.getSolicitante().getIdUsuario() != usuarioID) {
+            System.out.println("El usuario con ID " + usuarioID + " no es el dueño de la solicitud con ID " + solicitudId);
             return false; //No es el dueño de la solicitud
         }
         
@@ -314,6 +250,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             return true;
         }
         else{
+            System.out.println("La solicitud con ID " + solicitudId + " no se puede anular porque su estado es " + estado);
             return false;
          }  
      }
@@ -328,40 +265,6 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     }
 
 
-    
-    public String guardarArchivoEnDisco(MultipartFile file) {
-            try {
-                // 1. Definimos la carpeta "uploads" dentro de la raíz del proyecto
-                String rootPath = System.getProperty("user.dir");
-                String nombreCarpeta = "uploads";
-
-                // 2. Creamos el objeto File para la subcarpeta
-                File directory = new File(rootPath, nombreCarpeta);
-
-                // 3. Si la subcarpeta no existe, la creamos
-                if (!directory.exists()) {
-                    directory.mkdirs();
-                }
-
-                // 4. Generar nombre único (Timestamp + nombre original)
-                String nombreUnico = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-
-                // 5. Usamos Paths.get con dos argumentos para que Java ponga el "/" o "\" correcto
-                Path rutaDestino = Paths.get(directory.getAbsolutePath(), nombreUnico);
-
-                // 6. Escribimos los bytes del archivo
-                Files.write(rutaDestino, file.getBytes());
-
-                // 7. Retornamos la ruta absoluta para guardarla en la base de datos
-                return rutaDestino.toString();
-
-            } catch (IOException e) {
-                throw new RuntimeException("Error al escribir el archivo en el servidor: " + e.getMessage());
-            }
-    }
-
-
-
     //Esta función llama a guardarArchivosEnDisco (arriba)
     public List<Adjunto> procesarArchivos(List<MultipartFile> archivos, Solicitud solicitud) {
     List<Adjunto> lista = new ArrayList<>();
@@ -370,13 +273,14 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         for (MultipartFile archivo : archivos) {
             if (!archivo.isEmpty()) {
                 // Llamamos a tu lógica de escritura física
-                String rutaEnDisco = guardarArchivoEnDisco(archivo);
+                String rutaEnDisco = almacenamiento.guardarArchivoEnDisco(archivo);
                 
                 // Creamos el objeto para la Base de Datos
                 Adjunto adj = new Adjunto();
                 adj.setNombreArchivo(archivo.getOriginalFilename());
                 adj.setRuta(rutaEnDisco); // Guardamos el String de la ruta
                 adj.setTipoArchivo(archivo.getContentType());
+                adj.setTamañoKB(archivo.getSize() / 1024); // Convertimos bytes a KB
                 adj.setSolicitud(solicitud); // Vinculamos a la solicitud actual
                 
                 lista.add(adj);
@@ -436,30 +340,6 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
                 return true;
      }
      
-    // public boolean servActualizarSolicitud(Integer idSolicitud,ActualizarSolicitudDTO dto, String rol){
-    //     Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElse(null);
-    //     if ("APROBADOR".equalsIgnoreCase(rol)){
-    //         solicitud.setEstado(dto.getEstado());
-
-    //         //Se guarda en el historial
-    //         HistorialEstado h = new HistorialEstado();
-    //         h.setEstadoAnterior(solicitud.getEstado());
-    //         h.setEstadoNuevo(dto.getEstado());
-    //         h.setComentario(dto.getComentario());
-    //         h.setFechaCambio(new Date());
-    //         h.setSolicitud(solicitud);
-
-    //         solicitud.getHistorial().add(h);
-            
-    //         repoSolicitud.save(solicitud);
-    //         return true;
-    //     }
-    //     else{
-    //         return false;
-    //     }
-
-    // }
-
     public IUsuarioRepository getRepoUsuario() {
         return repoUsuario;
     }

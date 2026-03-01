@@ -1,7 +1,6 @@
 package com.campus360.solicitudes.Controller;
 
 
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -125,7 +124,7 @@ public class SolicitudController {
     }
 
 
-    @PostMapping(value = "/registrar", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+ /*  @PostMapping(value = "/registrar", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
     public ResponseEntity<?> crearSolicitud(@RequestHeader(value = "Authorization", required = false) String authorizationHeader,
         @RequestPart("solicitud") SolicitudCreateDTO dto,
         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos
@@ -178,8 +177,42 @@ public class SolicitudController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("{\"error\": \"" + e.getMessage() + "\"}");
         }
-    }
+    } */
 
+    @PostMapping(value = "/registrar", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+    public ResponseEntity<?> crearSolicitud(@RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+        @RequestPart("solicitud") SolicitudCreateDTO dto,
+        @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos
+    ) {
+        // if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+        //     throw new RuntimeException("Token no enviado o inválido");
+        // }
+        // String token = authorizationHeader.substring(7);
+
+        // int usuarioId = jwtUtil.obtenerIdUsuario(token);
+        // String nombre = jwtUtil.obtenerNombre(token);
+        // String rol = jwtUtil.obtenerRol(token);
+       
+        //  Para fines de prueba, si no se envía el token, se asignan valores por defecto. En producción, esto debería ser un error.
+        int usuarioId = 1; 
+        String nombre = "Cesar Alberto Pérez García";
+        String rol = "ESTUDIANTE";
+        try {
+            // 2. Llamar al servicio con el DTO y la lista de objetos Adjunto
+            boolean exito = servSolicitud.servRegistrarSolicitud(usuarioId, nombre, rol, dto,archivos);
+
+            if (exito) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                        .body("{\"mensaje\": \"Solicitud creada con éxito y archivos guardados\"}");
+            } else {
+                return ResponseEntity.badRequest().body("{\"error\": \"No se pudo procesar la solicitud\"}");
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\": \"" + e.getMessage() + "\"}");
+        }
+    }
 
 
 // private String guardarArchivoEnDisco(MultipartFile file) {
@@ -254,7 +287,7 @@ public class SolicitudController {
     // }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> anularSolicitud(@RequestHeader(value = "Authorization") String authHeader, @PathVariable Integer id){
+    public ResponseEntity<?> anularSolicitud(@RequestHeader(value = "Authorization", required = false) String authHeader, @PathVariable Integer id){
 
         try {
             // Extraer el usuario del token
