@@ -48,6 +48,7 @@ public class CatalogoClient {
         
         // Requisito tipo Archivo (muy importante si tu controlador maneja adjuntos)
         requisitos.add(new RequisitoDTO("Copia de DNI", "ARCHIVO", true));
+        
 
         // 4. Asignar la lista al objeto de respuesta
         mockResponse.setRequisitos(requisitos);

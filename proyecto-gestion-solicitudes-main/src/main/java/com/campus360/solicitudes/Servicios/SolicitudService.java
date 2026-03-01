@@ -35,7 +35,6 @@ import com.campus360.solicitudes.Servicios.sla.SlaStrategyFactory;
 import com.campus360.solicitudes.Factory.ISolicitudFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-
 import jakarta.transaction.Transactional;
 
 @Service
@@ -76,113 +75,236 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         this.aprobacionesClient = aprobacionesClient;
     }
 
-@Transactional
+    @Transactional
     public boolean servRegistrarSolicitud(int usuarioID, String nombre, String rol, SolicitudCreateDTO dto, List<MultipartFile> archivos) {
         
-        // 1. Obtener información del catálogo y validar requisitos
-        ServicioInfoResponse servicioInfo = catalogoClient.obtenerServicio(dto.getServicioId());
-        if (servicioInfo == null || !servicioInfo.isActivo()) {
-            throw new RuntimeException("El servicio solicitado no existe o no está activo");
-        }
+        // 1. Obtener y validar el servicio del catálogo
+        ServicioInfoResponse servicioInfo = buscarServicioActivo(dto.getServicioId());
+        validarRequisitosDinamicos(servicioInfo, dto, archivos);
 
-        // 2. Validación dinámica de requisitos
-        if (servicioInfo.getRequisitos() != null) {
-            for (RequisitoDTO req : servicioInfo.getRequisitos()) {
-                
-                // Solo validamos si el requisito es obligatorio
-                if (req.isObligatorio()) {
-                    
-                    // Caso A: El requisito es un archivo (FILE / ARCHIVO)
-                    if ("FILE".equalsIgnoreCase(req.getTipo()) || "ARCHIVO".equalsIgnoreCase(req.getTipo())) {
-                        // Verificamos que la lista de MultipartFiles contenga al menos un archivo
-                        if (archivos == null || archivos.isEmpty()) {
-                            throw new RuntimeException("Falta adjuntar el archivo obligatorio: " + req.getCampo());
-                        }
-                    } 
-                    
-                    // Caso B: El requisito es un dato de texto (como Sede de Recojo o Hora de Alquiler)
-                    else if ("STRING".equalsIgnoreCase(req.getTipo()) || "DATETIME".equalsIgnoreCase(req.getTipo())) {
-                        // Verificamos que el campo descripción del DTO no esté vacío
-                        if (dto.getDescripcion() == null || dto.getDescripcion().isBlank()) {
-                            throw new RuntimeException("Debe especificar '" + req.getCampo() + "' en la descripción de la solicitud.");
-                        }
-                    }
-                }
-            }
-        }
+        // 2. Gestionar el solicitante (Obtener existente o crear nuevo)
+        Usuario solicitante = obtenerOGuardarUsuario(usuarioID, nombre, rol);
 
-        // 3. OBTENER USUARIO (Modificado)
-        // Usamos getReferenceById si ya existe para evitar cargar todo el objeto y sus colecciones, 
-        // esto evita el error de "Row was already updated"
-        Usuario solicitante;
-        if (repoUsuario.existsById(usuarioID)) {
-            solicitante = repoUsuario.getReferenceById(usuarioID);
-        } else {
-            Usuario nuevo = new Usuario();
-            nuevo.setIdUsuario(usuarioID);
-            nuevo.setNombre(nombre); 
-            nuevo.setRol(rol);
-            // Guardamos pero NO usamos flush aquí para dejar que la transacción gestione el cierre
-            solicitante = repoUsuario.save(nuevo);
-        }
-        // Si existe algún requisito de tipo fecha, determinamos que el flujo es para un "Servicio"
-        boolean esServicio = servicioInfo.getRequisitos().stream()
-         .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
+        // 3. Construir la solicitud usando Factory y Strategy (SLA)
+        Solicitud solicitud = crearInstanciaSolicitud(servicioInfo, dto, solicitante);
+        vincularAdjuntos(solicitud, archivos);
 
-        // Aplicamos el patrón Factory Method para no usar 'new' directamente.
-        ISolicitudFactory fabricaElegida = esServicio ? servicioFactory : tramiteFactory;
-        //Obtenemos un objeto 'Solicitud' sin que el Service necesite saber su clase hija exacta.
-        Solicitud solicitud = fabricaElegida.crear(servicioInfo);
-        
-        solicitud.setDescripcion(dto.getDescripcion());
-        solicitud.setPrioridad(dto.getPrioridad());
-        solicitud.setSolicitante(solicitante);
-        solicitud.setEstado("PENDIENTE");
-
-        // Calcular SLA según prioridad
-        ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
-        strategy.aplicarSla(solicitud);
-
-        List<Adjunto> adjuntos = procesarArchivos(archivos, solicitud);
-
-        // Vincular adjuntos a la solicitud
-        if (adjuntos != null) {
-            solicitud.setAdjuntos(adjuntos);
-        }
-
-        // 4. Persistencia inicial para obtener ID
-        solicitud.crear();
+        // 4. Persistir la solicitud
         solicitud = repoSolicitud.save(solicitud);
 
-        // 5. Lógica de Pago (si el costo es mayor a 0)
-        if (servicioInfo.getCosto() != null && servicioInfo.getCosto().compareTo(BigDecimal.ZERO) > 0) {
-            GenerarOrdenPagoRequest pagoRequest = new GenerarOrdenPagoRequest();
-            pagoRequest.setSolicitudId( solicitud.getIdSolicitud());
-            pagoRequest.setMonto(servicioInfo.getCosto());    
-            // Solo notificamos y esperamos confirmación de recepción
-            if (pagoClient.generarOrden(pagoRequest)) {
-                solicitud.setEstado("PENDIENTE");
-            } else {
-                throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud.");
-            }
-        }
-
-        // 6. Notificar al módulo de Aprobaciones
-        SolicitudAprobacionDTO aprobacionDTO = new SolicitudAprobacionDTO();
-        aprobacionDTO.setIdSolicitud(solicitud.getIdSolicitud());
-        aprobacionDTO.setEstado(solicitud.getEstado());
-        aprobacionDTO.setFechaCreacion(new Date());
-        aprobacionDTO.setNombreSolicitante(solicitante.getNombre()); // Asumiendo que Usuario tiene getNombre
-
-        boolean enviadoAprobaciones = aprobacionesClient.enviarSolicitudConAdjuntos(aprobacionDTO, archivos);
-
-        if (!enviadoAprobaciones) {
-            // Dependiendo de la regla de negocio, podrías lanzar excepción para hacer rollback
-            throw new RuntimeException("No se pudo sincronizar la solicitud con el módulo de aprobaciones");
-        }
+        // 5. Procesos Externos (Pagos y Aprobaciones)
+        gestionarOrdenDePago(solicitud, servicioInfo.getCosto());
+        sincronizarConAprobaciones(solicitud, solicitante, archivos);
 
         return true;
     }
+
+    // --- MÉTODOS PRIVADOS DE APOYO ---
+
+    private ServicioInfoResponse buscarServicioActivo(int servicioId) {
+        ServicioInfoResponse info = catalogoClient.obtenerServicio(servicioId);
+        if (info == null || !info.isActivo()) {
+            throw new RuntimeException("El servicio solicitado no existe o no está activo");
+        }
+        return info;
+    }
+
+    private void validarRequisitosDinamicos(ServicioInfoResponse info, SolicitudCreateDTO dto, List<MultipartFile> archivos) {
+        if (info.getRequisitos() == null) return;
+        // 1. Contamos cuántos archivos OBLIGATORIOS pide el catálogo
+        long archivosRequeridos = info.getRequisitos().stream()
+            .filter(req -> req.isObligatorio() && 
+                    ("FILE".equalsIgnoreCase(req.getTipo()) || "ARCHIVO".equalsIgnoreCase(req.getTipo())))
+            .count();
+
+        // 2. Contamos cuántos archivos REALES (no vacíos) envió el usuario
+        long archivosEnviados = 0;
+        if (archivos != null) {
+            archivosEnviados = archivos.stream()
+                .filter(f -> !f.isEmpty() && f.getOriginalFilename() != null && !f.getOriginalFilename().isBlank())
+                .count();
+        }
+
+        // 3. Validación de cantidad
+        if (archivosEnviados < archivosRequeridos) {
+            throw new RuntimeException("Faltan archivos adjuntos. Se requieren " + archivosRequeridos + 
+                                    " archivos obligatorios, pero se recibieron " + archivosEnviados + ".");
+        }
+
+        // 4. Validación de campos de texto (se mantiene igual)
+        for (RequisitoDTO req : info.getRequisitos()) {
+            if (req.isObligatorio() && ("STRING".equalsIgnoreCase(req.getTipo()) || "DATETIME".equalsIgnoreCase(req.getTipo()))) {
+                if (dto.getFechaProgramada() == null || (dto.getDescripcion() == null || dto.getDescripcion().isBlank())) {
+                    throw new RuntimeException("Debe especificar '" + req.getCampo() + "' en la descripción.");
+                }
+            }
+        }
+    }
+
+    private Usuario obtenerOGuardarUsuario(int id, String nombre, String rol) {
+        if (repoUsuario.existsById(id)) {
+            return repoUsuario.getReferenceById(id);
+        }
+        Usuario nuevo = new Usuario();
+        nuevo.setIdUsuario(id);
+        nuevo.setNombre(nombre);
+        nuevo.setRol(rol);
+        return repoUsuario.save(nuevo);
+    }
+
+    private Solicitud crearInstanciaSolicitud(ServicioInfoResponse info, SolicitudCreateDTO dto, Usuario solicitante) {
+        boolean esServicio = info.getRequisitos().stream()
+                .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
+
+        ISolicitudFactory fabrica = esServicio ? servicioFactory : tramiteFactory;
+        Solicitud solicitud = fabrica.crear(info, dto);
+
+        solicitud.setSolicitante(solicitante);
+        solicitud.setEstado("PENDIENTE");
+
+        SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad()).aplicarSla(solicitud);
+        
+        return solicitud;
+    }
+
+    private void vincularAdjuntos(Solicitud solicitud, List<MultipartFile> archivos) {
+        List<Adjunto> adjuntos = procesarArchivos(archivos, solicitud);
+        if (adjuntos != null) {
+            solicitud.setAdjuntos(adjuntos);
+        }
+    }
+
+    private void gestionarOrdenDePago(Solicitud solicitud, BigDecimal costo) {
+        if (costo != null && costo.compareTo(BigDecimal.ZERO) > 0) {
+            GenerarOrdenPagoRequest pagoRequest = new GenerarOrdenPagoRequest();
+            pagoRequest.setSolicitudId(solicitud.getIdSolicitud());
+            pagoRequest.setMonto(costo);
+
+            if (!pagoClient.generarOrden(pagoRequest)) {
+                throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud.");
+            }
+        }
+    }
+
+    private void sincronizarConAprobaciones(Solicitud solicitud, Usuario solicitante, List<MultipartFile> archivos) {
+        SolicitudAprobacionDTO dto = new SolicitudAprobacionDTO();
+        dto.setIdSolicitud(solicitud.getIdSolicitud());
+        dto.setEstado(solicitud.getEstado());
+        dto.setFechaCreacion(new Date());
+        dto.setNombreSolicitante(solicitante.getNombre());
+
+        if (!aprobacionesClient.enviarSolicitudConAdjuntos(dto, archivos)) {
+            throw new RuntimeException("No se pudo sincronizar con el módulo de aprobaciones");
+        }
+    }
+
+// @Transactional
+//     public boolean servRegistrarSolicitud(int usuarioID, String nombre, String rol, SolicitudCreateDTO dto, List<MultipartFile> archivos) {
+        
+//         // 1. Obtener información del catálogo y validar requisitos
+//         ServicioInfoResponse servicioInfo = catalogoClient.obtenerServicio(dto.getServicioId());
+//         if (servicioInfo == null || !servicioInfo.isActivo()) {
+//             throw new RuntimeException("El servicio solicitado no existe o no está activo");
+//         }
+
+//         // 2. Validación dinámica de requisitos
+//         if (servicioInfo.getRequisitos() != null) {
+//             for (RequisitoDTO req : servicioInfo.getRequisitos()) {
+                
+//                 // Solo validamos si el requisito es obligatorio
+//                 if (req.isObligatorio()) {
+                    
+//                     // Caso A: El requisito es un archivo (FILE / ARCHIVO)
+//                     if ("FILE".equalsIgnoreCase(req.getTipo()) || "ARCHIVO".equalsIgnoreCase(req.getTipo())) {
+//                         // Verificamos que la lista de MultipartFiles contenga al menos un archivo
+//                         if (archivos == null || archivos.isEmpty()) {
+//                             throw new RuntimeException("Falta adjuntar el archivo obligatorio: " + req.getCampo());
+//                         }
+//                     } 
+                    
+//                     // Caso B: El requisito es un dato de texto (como Sede de Recojo o Hora de Alquiler)
+//                     else if ("STRING".equalsIgnoreCase(req.getTipo()) || "DATETIME".equalsIgnoreCase(req.getTipo())) {
+//                         // Verificamos que el campo descripción del DTO no esté vacío
+//                         if (dto.getDescripcion() == null || dto.getDescripcion().isBlank()) {
+//                             throw new RuntimeException("Debe especificar '" + req.getCampo() + "' en la descripción de la solicitud.");
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+
+//         // 3. OBTENER USUARIO (Modificado)
+//         // Usamos getReferenceById si ya existe para evitar cargar todo el objeto y sus colecciones, 
+//         // esto evita el error de "Row was already updated"
+//         Usuario solicitante;
+//         if (repoUsuario.existsById(usuarioID)) {
+//             solicitante = repoUsuario.getReferenceById(usuarioID);
+//         } else {
+//             Usuario nuevo = new Usuario();
+//             nuevo.setIdUsuario(usuarioID);
+//             nuevo.setNombre(nombre); 
+//             nuevo.setRol(rol);
+//             // Guardamos pero NO usamos flush aquí para dejar que la transacción gestione el cierre
+//             solicitante = repoUsuario.save(nuevo);
+//         }
+//         // Si existe algún requisito de tipo fecha, determinamos que el flujo es para un "Servicio"
+//         boolean esServicio = servicioInfo.getRequisitos().stream()
+//          .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
+
+//         // Aplicamos el patrón Factory Method para no usar 'new' directamente.
+//         ISolicitudFactory fabricaElegida = esServicio ? servicioFactory : tramiteFactory;
+//         //Obtenemos un objeto 'Solicitud' sin que el Service necesite saber su clase hija exacta.
+//         Solicitud solicitud = fabricaElegida.crear(servicioInfo);
+        
+//         solicitud.setDescripcion(dto.getDescripcion());
+//         solicitud.setPrioridad(dto.getPrioridad());
+//         solicitud.setSolicitante(solicitante);
+//         solicitud.setEstado("PENDIENTE");
+
+//         // Calcular SLA según prioridad
+//         ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
+//         strategy.aplicarSla(solicitud);
+
+//         List<Adjunto> adjuntos = procesarArchivos(archivos, solicitud);
+
+//         // Vincular adjuntos a la solicitud
+//         if (adjuntos != null) {
+//             solicitud.setAdjuntos(adjuntos);
+//         }
+
+//         // 4. Persistencia inicial para obtener ID
+//         solicitud.crear();
+//         solicitud = repoSolicitud.save(solicitud);
+
+//         // 5. Lógica de Pago (si el costo es mayor a 0)
+//         if (servicioInfo.getCosto() != null && servicioInfo.getCosto().compareTo(BigDecimal.ZERO) > 0) {
+//             GenerarOrdenPagoRequest pagoRequest = new GenerarOrdenPagoRequest();
+//             pagoRequest.setSolicitudId( solicitud.getIdSolicitud());
+//             pagoRequest.setMonto(servicioInfo.getCosto());    
+//             // Solo notificamos y esperamos confirmación de recepción
+//             if (pagoClient.generarOrden(pagoRequest)) {
+//                 solicitud.setEstado("PENDIENTE");
+//             } else {
+//                 throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud.");
+//             }
+//         }
+
+//         // 6. Notificar al módulo de Aprobaciones
+//         SolicitudAprobacionDTO aprobacionDTO = new SolicitudAprobacionDTO();
+//         aprobacionDTO.setIdSolicitud(solicitud.getIdSolicitud());
+//         aprobacionDTO.setEstado(solicitud.getEstado());
+//         aprobacionDTO.setFechaCreacion(new Date());
+//         aprobacionDTO.setNombreSolicitante(solicitante.getNombre()); // Asumiendo que Usuario tiene getNombre
+
+//         boolean enviadoAprobaciones = aprobacionesClient.enviarSolicitudConAdjuntos(aprobacionDTO, archivos);
+
+//         if (!enviadoAprobaciones) {
+//             // Dependiendo de la regla de negocio, podrías lanzar excepción para hacer rollback
+//             throw new RuntimeException("No se pudo sincronizar la solicitud con el módulo de aprobaciones");
+//         }
+
+//         return true;
+//     }
 
 
     public List<SolicitudDTO> servObtenerHistorial(Integer usuarioID){ 
