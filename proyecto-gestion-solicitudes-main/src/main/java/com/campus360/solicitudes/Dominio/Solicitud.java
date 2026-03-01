@@ -34,6 +34,18 @@ import lombok.ToString;
 @Inheritance(strategy = InheritanceType.JOINED)
 
 public class Solicitud {
+
+     
+    // ENUM INTERNO - Protege los valores válidos
+    private enum EstadoEnum {
+        PENDIENTE, POR_APROBAR, APROBADO, RECHAZADA, OBSERVADA
+    }
+    
+    // ENUM INTERNO - Protege los valores válidos
+    private enum PrioridadEnum {
+        ALTA, BAJA
+    }
+     
      // Atributos privados (-) según el diagrama
 
     @Id
@@ -100,8 +112,8 @@ public class Solicitud {
                      Usuario solicitante, List<Adjunto> adjuntos, List<HistorialEstado> historial) {
         this.idSolicitud = idSolicitud;
         this.fechaCreacion = fechaCreacion;
-        this.estado = estado;
-        this.prioridad = prioridad;
+        setEstado(estado);
+        setPrioridad(prioridad);
         this.slaObjetivo = slaObjetivo;
         this.solicitante = solicitante;
         this.adjuntos = adjuntos != null ? adjuntos : new ArrayList<>();
@@ -155,7 +167,7 @@ public class Solicitud {
             this.fechaLimite = new Date(ahora.getTime() + tiempoRestanteMs);
         }
 
-        this.estado = nuevoEstado;
+        setEstado(nuevoEstado);
         this.fechaUltimoCambio = ahora;
     }
 
@@ -212,20 +224,38 @@ public class Solicitud {
     public void setFechaCreacion(Date fechaCreacion) {
         this.fechaCreacion = fechaCreacion;
     }
-
     public String getEstado() {
         return estado;
     }
 
     public void setEstado(String estado) {
+        // INTERNAMENTE usa ENUM para validar
+        if (estado == null) {
+            throw new IllegalArgumentException("Estado no puede ser null");
+        }
+        try {
+            EstadoEnum.valueOf(estado.toUpperCase());  // Valida que sea válido
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Estado inválido: " + estado + 
+                    ". Válidos: " + String.join(", ", EstadoEnum.values()));
+        }
         this.estado = estado;
     }
-
     public String getPrioridad() {
         return prioridad;
     }
 
     public void setPrioridad(String prioridad) {
+        // INTERNAMENTE usa ENUM para validar
+        if (prioridad == null) {
+            throw new IllegalArgumentException("Prioridad no puede ser null");
+        }
+        try {
+            PrioridadEnum.valueOf(prioridad.toUpperCase());  // Valida que sea válido
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Prioridad inválida: " + prioridad + 
+                    ". Válidas: " + String.join(", ", PrioridadEnum.values()));
+        }
         this.prioridad = prioridad;
     }
 
