@@ -408,7 +408,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
                 }
 
                 List<Adjunto> newAdjuntos = procesarArchivos(nuevosAdjuntos, solicitud);
-                solicitud.getAdjuntos().addAll(newAdjuntos);
+                //solicitud.getAdjuntos().addAll(newAdjuntos);
 
                 // 2. ACTUALIZACIÓN INTELIGENTE DEL SLA
                 // Aquí es donde el tiempo se reanuda y la fecha límite se "empuja" hacia adelante
