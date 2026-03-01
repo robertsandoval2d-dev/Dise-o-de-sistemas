@@ -387,7 +387,8 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     }
 
     public boolean servActualizarSolicitud(Integer idSolicitud,ActualizarSolicitudDTO dto, String rol, List<MultipartFile> nuevosAdjuntos){
-        Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElse(null);
+        //Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElse(null);
+        Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
         
         String estadoAnterior = solicitud.getEstado();
         String nuevoEstado = dto.getEstado();
