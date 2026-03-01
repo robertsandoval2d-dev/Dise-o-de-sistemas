@@ -38,7 +38,7 @@ public class Solicitud {
      
     // ENUM INTERNO - Protege los valores válidos
     private enum EstadoEnum {
-        PENDIENTE, POR_APROBAR, APROBADO, RECHAZADA, OBSERVADA
+        PENDIENTE, EN_PROCESO, APROBADO, RECHAZADO, OBSERVADO
     }
     
     // ENUM INTERNO - Protege los valores válidos
