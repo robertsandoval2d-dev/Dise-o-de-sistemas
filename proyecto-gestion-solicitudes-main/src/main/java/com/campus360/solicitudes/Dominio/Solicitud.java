@@ -185,7 +185,8 @@ public class Solicitud {
 
     public void agregarAdjunto(Adjunto a) {
         if (a != null && a.validarTipo()) {
-            this.adjuntos.add(a);
+             a.setSolicitud(this);a.setSolicitud(this); //evita inconsistencias
+             this.adjuntos.add(a);
         }
     }
 
