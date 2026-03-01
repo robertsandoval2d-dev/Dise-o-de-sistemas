@@ -236,8 +236,7 @@ public class Solicitud {
         try {
             EstadoEnum.valueOf(estado.toUpperCase());  // Valida que sea válido
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Estado inválido: " + estado + 
-                    ". Válidos: " + String.join(", ", EstadoEnum.values()));
+            throw new IllegalArgumentException("Estado inválido: " + estado);
         }
         this.estado = estado;
     }
@@ -253,8 +252,7 @@ public class Solicitud {
         try {
             PrioridadEnum.valueOf(prioridad.toUpperCase());  // Valida que sea válido
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Prioridad inválida: " + prioridad + 
-                    ". Válidas: " + String.join(", ", PrioridadEnum.values()));
+            throw new IllegalArgumentException("Prioridad inválida: " + prioridad);
         }
         this.prioridad = prioridad;
     }
