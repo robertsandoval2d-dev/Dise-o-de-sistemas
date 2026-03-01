@@ -37,7 +37,9 @@ import com.campus360.solicitudes.Repositorio.ISolicitudRepository;
 import com.campus360.solicitudes.Repositorio.IUsuarioRepository;
 import com.campus360.solicitudes.Servicios.sla.ISlaStrategy;
 import com.campus360.solicitudes.Servicios.sla.SlaStrategyFactory;
-
+import com.campus360.solicitudes.Factory.ISolicitudFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import jakarta.transaction.Transactional;
 
@@ -59,6 +61,13 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     @Autowired
     private AprobacionesClient aprobacionesClient;
 
+    // Inyección de las dos fábricas
+    @Autowired
+    @Qualifier("servicioFactory")
+    private ISolicitudFactory servicioFactory;
+    @Autowired
+    @Qualifier("tramiteFactory")
+    private ISolicitudFactory tramiteFactory;
 
     public SolicitudService() {
     }
@@ -121,21 +130,15 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             // Guardamos pero NO usamos flush aquí para dejar que la transacción gestione el cierre
             solicitante = repoUsuario.save(nuevo);
         }
+        // Si existe algún requisito de tipo fecha, determinamos que el flujo es para un "Servicio"
         boolean esServicio = servicioInfo.getRequisitos().stream()
-            .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
+         .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
 
-        Solicitud solicitud;
-        if (esServicio) {
-            SolicitudServicio ss = new SolicitudServicio();
-            ss.setTipoServicio(servicioInfo.getNombre());
-            // Seteamos una fecha por defecto o la extraída de algún lugar
-            ss.setFechaSolicitada(new Date()); 
-            solicitud = ss;
-        } else {
-            SolicitudTramite st = new SolicitudTramite();
-            st.setTipoTramite(servicioInfo.getNombre());
-            solicitud = st;
-        }
+        // Aplicamos el patrón Factory Method para no usar 'new' directamente.
+        ISolicitudFactory fabricaElegida = esServicio ? servicioFactory : tramiteFactory;
+        //Obtenemos un objeto 'Solicitud' sin que el Service necesite saber su clase hija exacta.
+        Solicitud solicitud = fabricaElegida.crear(servicioInfo);
+        
         solicitud.setDescripcion(dto.getDescripcion());
         solicitud.setPrioridad(dto.getPrioridad());
         solicitud.setSolicitante(solicitante);
