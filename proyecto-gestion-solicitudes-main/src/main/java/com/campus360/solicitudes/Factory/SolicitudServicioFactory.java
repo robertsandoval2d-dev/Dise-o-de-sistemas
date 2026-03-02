@@ -16,14 +16,17 @@ public class SolicitudServicioFactory implements ISolicitudFactory {
         ss.setPrioridad(dto.getPrioridad());
         // 3. Conversión de fecha específica (Lógica encapsulada)
         if (dto.getFechaProgramada() != null) {
-            java.util.Date fechaConvertida = java.util.Date.from(
-                dto.getFechaProgramada()
-                   .atZone(java.time.ZoneId.systemDefault())
-                   .toInstant()
-            );
-            ss.setFechaSolicitada(fechaConvertida);
-        } else {
-            ss.setFechaSolicitada(new java.util.Date()); // Default
+            try {
+                java.util.Date fechaConvertida = java.util.Date.from(
+                    dto.getFechaProgramada()
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toInstant()
+                );
+                ss.setFechaSolicitada(fechaConvertida);
+            } catch (Exception e) {
+                // LANZAMOS EL ERROR (Esto es lo que probarás)
+                throw new RuntimeException("Error de formato en fecha programada: " + e.getMessage());
+            }
         }
         return ss;
     }

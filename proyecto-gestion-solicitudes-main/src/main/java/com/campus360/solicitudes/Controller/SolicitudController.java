@@ -89,32 +89,37 @@ public class SolicitudController {
 
     //APIS
 
+    @GetMapping("usuario/listar")
+    public ResponseEntity<List<SolicitudDTO>> listarSolicitudesDeUsuario(
+            @RequestHeader(value = "Authorization", required = false) String authHeader){
 
-    // @GetMapping
-    // public List<SolicitudDTO> listarSolicitudes(@RequestParam Integer usuarioId){
-    //     return servSolicitud.servObtenerHistorial(usuarioId);
-    // }
+        //String token = extraerToken(authHeader);
+        // int usuarioId = jwtUtil.obtenerIdUsuario(token);
 
-    @GetMapping
-    public List<SolicitudDTO> listarSolicitudes(
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader){
+        int usuarioId = 1; // Para pruebas
 
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new RuntimeException("Token no enviado o inválido");
+        List<SolicitudDTO> solicitudes = servSolicitud.servObtenerHistorialSolicitudes(usuarioId);
+
+        if (solicitudes == null || solicitudes.isEmpty()) {
+            return ResponseEntity.noContent().build(); // 204
         }
 
-        // String token = authorizationHeader.substring(7);
-
-        // int usuarioId = jwtUtil.obtenerIdUsuario(token);
-        int usuarioId = 1; // Para pruebas, asignamos un ID fijo. En producción, esto se obtiene del token.
-        return servSolicitud.servObtenerHistorial(usuarioId);
+        return ResponseEntity.ok(solicitudes); // 200
     }
 
 
-    @GetMapping("/{id}")
-    public ResponseEntity<?> consultarSolicitud(@PathVariable Integer id, @RequestHeader(value = "X-User-Role", required = false) String rol){
-        String rolUsuario = (rol != null) ? rol : "ESTUDIANTE";
-        SolicitudDTO resultado = servSolicitud.obtenerDetalleCompleto(id, rolUsuario);
+    @GetMapping("solicitud/{id}")
+    public ResponseEntity<?> consultarSolicitud(@PathVariable Integer id, @RequestHeader(value = "Authorization", required = false) String authHeader){
+        //String token = extraerToken(authHeader);
+
+        // String rol = jwtUtil.obtenerRol(token);
+        // int usuarioId = jwtUtil.obtenerIdUsuario(token);
+
+        String rolUsuario = "APROBADOR"; // Para pruebas, asignamos un rol fijo. En producción, esto se obtiene del token.
+        int usuarioId = 1; // Para pruebas, asignamos un ID fijo. En producción, esto se obtiene del token.
+
+        
+        SolicitudDTO resultado = servSolicitud.obtenerDetalleCompleto(id, rolUsuario,usuarioId);
 
         if (resultado == null) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Solicitud no encontrada");
@@ -124,70 +129,12 @@ public class SolicitudController {
     }
 
 
- /*  @PostMapping(value = "/registrar", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
-    public ResponseEntity<?> crearSolicitud(@RequestHeader(value = "Authorization", required = false) String authorizationHeader,
-        @RequestPart("solicitud") SolicitudCreateDTO dto,
-        @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos
-    ) {
-        // if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-        //     throw new RuntimeException("Token no enviado o inválido");
-        // }
-
-        // String token = authorizationHeader.substring(7);
-
-        // int usuarioId = jwtUtil.obtenerIdUsuario(token);
-        // String nombre = jwtUtil.obtenerNombre(token);
-        // String rol = jwtUtil.obtenerRol(token);
-       
-        //  Para fines de prueba, si no se envía el token, se asignan valores por defecto. En producción, esto debería ser un error.
-        int usuarioId = 1; 
-        String nombre = "Cesar Alberto Pérez García";
-        String rol = "ESTUDIANTE";
-        try {
-            ArrayList<Adjunto> listaAdjuntosParaBD = new ArrayList<>();
-
-            // 1. Procesar los archivos físicos si es que el usuario envió alguno
-            if (archivos != null && !archivos.isEmpty()) {
-                for (MultipartFile file : archivos) {
-                    // Guardamos en el disco duro y obtenemos la ruta -  LLAMO AL OTRO METODO DE ABAJO 
-                    String rutaFisica = servSolicitud.guardarArchivoEnDisco(file);
-
-                    // Creamos el objeto Adjunto que se guardará en MySQL
-                    Adjunto adj = new Adjunto();
-                    adj.setNombreArchivo(file.getOriginalFilename());
-                    adj.setRuta(rutaFisica);
-                    adj.setTipoArchivo(file.getContentType());
-                    adj.setTamañoKB(file.getSize() / 1024); // Tamaño en KB
-
-                    listaAdjuntosParaBD.add(adj);
-                }
-            }
-
-            // 2. Llamar al servicio con el DTO y la lista de objetos Adjunto
-            boolean exito = servSolicitud.servRegistrarSolicitud(usuarioId, nombre, rol, dto, listaAdjuntosParaBD,archivos);
-
-            if (exito) {
-                return ResponseEntity.status(HttpStatus.CREATED)
-                        .body("{\"mensaje\": \"Solicitud creada con éxito y archivos guardados\"}");
-            } else {
-                return ResponseEntity.badRequest().body("{\"error\": \"No se pudo procesar la solicitud\"}");
-            }
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("{\"error\": \"" + e.getMessage() + "\"}");
-        }
-    } */
-
     @PostMapping(value = "/registrar", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
-    public ResponseEntity<?> crearSolicitud(@RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+    public ResponseEntity<?> crearSolicitud(@RequestHeader(value = "Authorization", required = false) String authHeader,
         @RequestPart("solicitud") SolicitudCreateDTO dto,
         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos
     ) {
-        // if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-        //     throw new RuntimeException("Token no enviado o inválido");
-        // }
-        // String token = authorizationHeader.substring(7);
+        //String token = extraerToken(authHeader);
 
         // int usuarioId = jwtUtil.obtenerIdUsuario(token);
         // String nombre = jwtUtil.obtenerNombre(token);
@@ -197,6 +144,7 @@ public class SolicitudController {
         int usuarioId = 1; 
         String nombre = "Cesar Alberto Pérez García";
         String rol = "ESTUDIANTE";
+
         try {
             // 2. Llamar al servicio con el DTO y la lista de objetos Adjunto
             boolean exito = servSolicitud.servRegistrarSolicitud(usuarioId, nombre, rol, dto,archivos);
@@ -214,84 +162,12 @@ public class SolicitudController {
         }
     }
 
-
-// private String guardarArchivoEnDisco(MultipartFile file) {
-//     try {
-//         // 1. Definimos la carpeta "uploads" dentro de la raíz del proyecto
-//         String rootPath = System.getProperty("user.dir");
-//         String nombreCarpeta = "uploads";
-
-//         // 2. Creamos el objeto File para la subcarpeta
-//         File directory = new File(rootPath, nombreCarpeta);
-
-//         // 3. Si la subcarpeta no existe, la creamos
-//         if (!directory.exists()) {
-//             directory.mkdirs();
-//         }
-
-//         // 4. Generar nombre único (Timestamp + nombre original)
-//         String nombreUnico = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-
-//         // 5. Usamos Paths.get con dos argumentos para que Java ponga el "/" o "\" correcto
-//         Path rutaDestino = Paths.get(directory.getAbsolutePath(), nombreUnico);
-
-//         // 6. Escribimos los bytes del archivo
-//         Files.write(rutaDestino, file.getBytes());
-
-//         // 7. Retornamos la ruta absoluta para guardarla en la base de datos
-//         return rutaDestino.toString();
-
-//     } catch (IOException e) {
-//         throw new RuntimeException("Error al escribir el archivo en el servidor: " + e.getMessage());
-//     }
-// }
-
-
-
-    //RESTO DE PETICIONES (JeanFranco)
-
-    // @PostMapping(value = "/{id}/adjuntos", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
-    // public ResponseEntity<?> adjuntarArchivos(
-    //         @PathVariable Integer id,
-    //         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos
-    // ) {
-    //     try {
-    //         ArrayList<Adjunto> listaAdjuntosParaBD = new ArrayList<>();
-
-    //         if (archivos != null && !archivos.isEmpty()) {
-    //             for (MultipartFile file : archivos) {
-    //                 String rutaFisica = guardarArchivoEnDisco(file);
-
-    //                 Adjunto adj = new Adjunto();
-    //                 adj.setNombreArchivo(file.getOriginalFilename());
-    //                 adj.setRuta(rutaFisica);
-    //                 adj.setTipoArchivo(file.getContentType());
-
-    //                 listaAdjuntosParaBD.add(adj);
-    //             }
-    //         }
-
-    //         boolean exito = servSolicitud.servAdjuntarArchivos(id, listaAdjuntosParaBD);
-
-    //         if (exito) {
-    //             return ResponseEntity.status(HttpStatus.CREATED)
-    //                     .body("{\"mensaje\": \"Adjuntos registrados con éxito\"}");
-    //         } else {
-    //             return ResponseEntity.badRequest().body("{\"error\": \"No se pudo registrar los adjuntos\"}");
-    //         }
-
-    //     } catch (Exception e) {
-    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-    //                 .body("{\"error\": \"" + e.getMessage() + "\"}");
-    //     }
-    // }
-
-    @DeleteMapping("/{id}")
+    @DeleteMapping("anular/{id}")
     public ResponseEntity<?> anularSolicitud(@RequestHeader(value = "Authorization", required = false) String authHeader, @PathVariable Integer id){
 
         try {
             // Extraer el usuario del token
-            // String token = authHeader.substring(7);
+            //String token = extraerToken(authHeader);
             // String usuarioActualId = jwtUtil.obtenerIdUsuario(token);
 
             int usuarioActualId = 1; // Para pruebas, asignamos un ID fijo. En producción, esto se obtiene del token.
@@ -317,40 +193,34 @@ public class SolicitudController {
         return ResponseEntity.ok().body(solicitudes);
     }
 
-    
-
-    // @PatchMapping("/actualizar/{id}")
-    // public ResponseEntity<?> actualizarSolicitud(@PathVariable Integer id, @RequestPart("datos") ActualizarSolicitudDTO dto,@RequestPart(value = "archivos", required = false) List<MultipartFile> archivos,@RequestHeader(value = "X-User-Role", required = true) String rol){
-
-        
-    //     boolean actualizado=servSolicitud.servActualizarSolicitud(id,dto, rol,archivos);
-
-    //     if(actualizado){
-    //         return ResponseEntity.ok().body("{ \"mensaje\": \"La solicitud ha sido actualizada correctamente\"}");
-    //     }
-    //     else{
-    //         return ResponseEntity.status(HttpStatus.CONFLICT).body("\"mensaje\": \"La solicitud NO se pudo actualizar\"");
-    //     }
-    // }
-
     @PatchMapping("/actualizar/{id}")
     public ResponseEntity<?> actualizarSolicitud(
-        @RequestHeader(value = "Authorization") String authHeader,
+        @RequestHeader(value = "Authorization", required = false) String authHeader,
         @PathVariable Integer id, 
         @RequestPart("datos") ActualizarSolicitudDTO dto,
         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos) {
 
-        // String token = authHeader.substring(7);
+        //String token = extraerToken(authHeader);
         // String rol = jwtUtil.obtenerRol(token); // Obtenemos el rol del TOKEN, no de un header manual
+        // int usarioId = jwtUtil.obtenerIdUsuario(token); // Obtenemos el ID del usuario del TOKEN, no de un header manual
+
+        int usuarioId = 1; // Para pruebas, asignamos un ID fijo. En producción, esto se obtiene del token.
         String rol = "ESTUDIANTE"; // Para pruebas, asignamos un rol fijo. En producción, esto se obtiene del token.
 
-        boolean actualizado = servSolicitud.servActualizarSolicitud(id, dto, rol, archivos);
+        boolean actualizado = servSolicitud.servActualizarSolicitud(id,usuarioId, dto, rol, archivos);
 
         if (actualizado) {
             return ResponseEntity.ok().body("{ \"mensaje\": \"La solicitud ha sido actualizada correctamente\"}");
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("{\"mensaje\": \"No tienes permisos para esta acción\"}");
         }
+    }
+
+    private String extraerToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new RuntimeException("Token no enviado o inválido");
+        }
+        return authHeader.substring(7);
     }
 
 }
