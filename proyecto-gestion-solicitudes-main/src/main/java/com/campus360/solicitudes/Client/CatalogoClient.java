@@ -38,17 +38,20 @@ public class CatalogoClient {
         // Usamos reflexión o setters si los tienes, o modificamos la clase para que tenga setters.
         // Asumiendo que agregas setters básicos para la prueba:
         mockResponse.setId(catalogoId);
-        mockResponse.setNombre("Certificado de notas");
+        mockResponse.setNombre("Servicio de Alquiler de Auditorio");
         mockResponse.setDescripcion("Servicio simulado para pruebas de refactorización");
-        mockResponse.setCosto(new java.math.BigDecimal("20.00"));
+        mockResponse.setCosto(new java.math.BigDecimal("150.00"));
         mockResponse.setActivo(true);
 
         // 3. Crear los requisitos simulados
         List<RequisitoDTO> requisitos = new java.util.ArrayList<>();
         
+        // Requisito tipo Fecha
+        requisitos.add(new RequisitoDTO("fecha_programada", "DATETIME", true));
+        
         // Requisito tipo Archivo (muy importante si tu controlador maneja adjuntos)
         requisitos.add(new RequisitoDTO("Copia de DNI", "ARCHIVO", true));
-        
+
         // 4. Asignar la lista al objeto de respuesta
         mockResponse.setRequisitos(requisitos);
 

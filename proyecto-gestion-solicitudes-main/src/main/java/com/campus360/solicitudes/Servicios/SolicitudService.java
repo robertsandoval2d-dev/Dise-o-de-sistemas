@@ -136,7 +136,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         for (RequisitoDTO req : info.getRequisitos()) {
             if (req.isObligatorio() && ("STRING".equalsIgnoreCase(req.getTipo()) || "DATETIME".equalsIgnoreCase(req.getTipo()))) {
                 if (dto.getFechaProgramada() == null || (dto.getDescripcion() == null || dto.getDescripcion().isBlank())) {
-                    throw new RuntimeException("Debe especificar '" + req.getCampo() + "' en la descripción.");
+                    throw new RuntimeException("Debe especificar '" + req.getCampo() + "' en la solicitud.");
                 }
             }
         }

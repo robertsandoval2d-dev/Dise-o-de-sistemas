@@ -156,7 +156,12 @@ public class SolicitudController {
                 return ResponseEntity.badRequest().body("{\"error\": \"No se pudo procesar la solicitud\"}");
             }
 
-        } catch (Exception e) {
+        } 
+        catch(RuntimeException e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("{\"error\": \"" + e.getMessage() + "\"}");
+        }
+        catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("{\"error\": \"" + e.getMessage() + "\"}");
         }
