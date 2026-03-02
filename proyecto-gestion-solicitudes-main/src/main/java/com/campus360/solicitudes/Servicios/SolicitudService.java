@@ -10,6 +10,7 @@ import java.util.Date;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.campus360.solicitudes.Client.AprobacionesClient;
 import com.campus360.solicitudes.Client.CatalogoClient;
@@ -35,6 +36,8 @@ import com.campus360.solicitudes.Servicios.sla.SlaStrategyFactory;
 import com.campus360.solicitudes.Factory.ISolicitudFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
+
 import jakarta.transaction.Transactional;
 
 @Service
@@ -162,6 +165,16 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         solicitud.setSolicitante(solicitante);
         solicitud.setEstado("PENDIENTE");
 
+        HistorialEstado h = new HistorialEstado();
+        h.setEstadoAnterior(null);
+        h.setEstadoNuevo(solicitud.getEstado());
+        h.setComentario("Creación de historial al registrar solicitud");
+        h.setFechaCambio(new Date());
+        h.setUsuarioResponsable(solicitante);
+        h.setSolicitud(solicitud);
+
+        solicitud.getHistorial().add(h);
+
         SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad()).aplicarSla(solicitud);
         
         return solicitud;
@@ -198,123 +211,14 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         }
     }
 
-// @Transactional
-//     public boolean servRegistrarSolicitud(int usuarioID, String nombre, String rol, SolicitudCreateDTO dto, List<MultipartFile> archivos) {
-        
-//         // 1. Obtener información del catálogo y validar requisitos
-//         ServicioInfoResponse servicioInfo = catalogoClient.obtenerServicio(dto.getServicioId());
-//         if (servicioInfo == null || !servicioInfo.isActivo()) {
-//             throw new RuntimeException("El servicio solicitado no existe o no está activo");
-//         }
-
-//         // 2. Validación dinámica de requisitos
-//         if (servicioInfo.getRequisitos() != null) {
-//             for (RequisitoDTO req : servicioInfo.getRequisitos()) {
-                
-//                 // Solo validamos si el requisito es obligatorio
-//                 if (req.isObligatorio()) {
-                    
-//                     // Caso A: El requisito es un archivo (FILE / ARCHIVO)
-//                     if ("FILE".equalsIgnoreCase(req.getTipo()) || "ARCHIVO".equalsIgnoreCase(req.getTipo())) {
-//                         // Verificamos que la lista de MultipartFiles contenga al menos un archivo
-//                         if (archivos == null || archivos.isEmpty()) {
-//                             throw new RuntimeException("Falta adjuntar el archivo obligatorio: " + req.getCampo());
-//                         }
-//                     } 
-                    
-//                     // Caso B: El requisito es un dato de texto (como Sede de Recojo o Hora de Alquiler)
-//                     else if ("STRING".equalsIgnoreCase(req.getTipo()) || "DATETIME".equalsIgnoreCase(req.getTipo())) {
-//                         // Verificamos que el campo descripción del DTO no esté vacío
-//                         if (dto.getDescripcion() == null || dto.getDescripcion().isBlank()) {
-//                             throw new RuntimeException("Debe especificar '" + req.getCampo() + "' en la descripción de la solicitud.");
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-
-//         // 3. OBTENER USUARIO (Modificado)
-//         // Usamos getReferenceById si ya existe para evitar cargar todo el objeto y sus colecciones, 
-//         // esto evita el error de "Row was already updated"
-//         Usuario solicitante;
-//         if (repoUsuario.existsById(usuarioID)) {
-//             solicitante = repoUsuario.getReferenceById(usuarioID);
-//         } else {
-//             Usuario nuevo = new Usuario();
-//             nuevo.setIdUsuario(usuarioID);
-//             nuevo.setNombre(nombre); 
-//             nuevo.setRol(rol);
-//             // Guardamos pero NO usamos flush aquí para dejar que la transacción gestione el cierre
-//             solicitante = repoUsuario.save(nuevo);
-//         }
-//         // Si existe algún requisito de tipo fecha, determinamos que el flujo es para un "Servicio"
-//         boolean esServicio = servicioInfo.getRequisitos().stream()
-//          .anyMatch(r -> "DATE".equalsIgnoreCase(r.getTipo()) || "DATETIME".equalsIgnoreCase(r.getTipo()));
-
-//         // Aplicamos el patrón Factory Method para no usar 'new' directamente.
-//         ISolicitudFactory fabricaElegida = esServicio ? servicioFactory : tramiteFactory;
-//         //Obtenemos un objeto 'Solicitud' sin que el Service necesite saber su clase hija exacta.
-//         Solicitud solicitud = fabricaElegida.crear(servicioInfo);
-        
-//         solicitud.setDescripcion(dto.getDescripcion());
-//         solicitud.setPrioridad(dto.getPrioridad());
-//         solicitud.setSolicitante(solicitante);
-//         solicitud.setEstado("PENDIENTE");
-
-//         // Calcular SLA según prioridad
-//         ISlaStrategy strategy = SlaStrategyFactory.obtenerStrategy(solicitud.getPrioridad());
-//         strategy.aplicarSla(solicitud);
-
-//         List<Adjunto> adjuntos = procesarArchivos(archivos, solicitud);
-
-//         // Vincular adjuntos a la solicitud
-//         if (adjuntos != null) {
-//             solicitud.setAdjuntos(adjuntos);
-//         }
-
-//         // 4. Persistencia inicial para obtener ID
-//         solicitud.crear();
-//         solicitud = repoSolicitud.save(solicitud);
-
-//         // 5. Lógica de Pago (si el costo es mayor a 0)
-//         if (servicioInfo.getCosto() != null && servicioInfo.getCosto().compareTo(BigDecimal.ZERO) > 0) {
-//             GenerarOrdenPagoRequest pagoRequest = new GenerarOrdenPagoRequest();
-//             pagoRequest.setSolicitudId( solicitud.getIdSolicitud());
-//             pagoRequest.setMonto(servicioInfo.getCosto());    
-//             // Solo notificamos y esperamos confirmación de recepción
-//             if (pagoClient.generarOrden(pagoRequest)) {
-//                 solicitud.setEstado("PENDIENTE");
-//             } else {
-//                 throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud.");
-//             }
-//         }
-
-//         // 6. Notificar al módulo de Aprobaciones
-//         SolicitudAprobacionDTO aprobacionDTO = new SolicitudAprobacionDTO();
-//         aprobacionDTO.setIdSolicitud(solicitud.getIdSolicitud());
-//         aprobacionDTO.setEstado(solicitud.getEstado());
-//         aprobacionDTO.setFechaCreacion(new Date());
-//         aprobacionDTO.setNombreSolicitante(solicitante.getNombre()); // Asumiendo que Usuario tiene getNombre
-
-//         boolean enviadoAprobaciones = aprobacionesClient.enviarSolicitudConAdjuntos(aprobacionDTO, archivos);
-
-//         if (!enviadoAprobaciones) {
-//             // Dependiendo de la regla de negocio, podrías lanzar excepción para hacer rollback
-//             throw new RuntimeException("No se pudo sincronizar la solicitud con el módulo de aprobaciones");
-//         }
-
-//         return true;
-//     }
-
-
-    public List<SolicitudDTO> servObtenerHistorial(Integer usuarioID){ 
+    public List<SolicitudDTO> servObtenerHistorialSolicitudes(Integer usuarioID){ 
         List<Solicitud> solicitudes = repoSolicitud.findBySolicitanteIdUsuario(usuarioID);
          return solicitudes.stream()
                       .map(sol -> new SolicitudDTO(sol))
                       .collect(Collectors.toList());
     }
 
-    public SolicitudDTO obtenerDetalleCompleto(int solicitudId, String rol){
+    public SolicitudDTO obtenerDetalleCompleto(int solicitudId, String rol,int usuarioId) {
         
         Solicitud solicitud = repoSolicitud.findById(solicitudId).orElse(null);
         if (solicitud != null) {
@@ -340,17 +244,14 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
 
             System.out.println("Estado actualizado a EN PROCESO por acceso de Aprobador");
         }
+        if("ESTUDIANTE".equalsIgnoreCase(rol) && solicitud.getSolicitante().getIdUsuario() != usuarioId){
+            return null; // No tiene permiso para ver esta solicitud
+        }
          //lógica para calulcar estado de sla
          return new SolicitudDTO(solicitud);
-    }                      
+        }                      
 
        return null; 
-    }
-
-    public Solicitud obtenerDetalleCompleto(int solicitudId){
-        Solicitud solicitud = repoSolicitud.findById(solicitudId).orElse(null);
-        //lógica para calulcar estado de sla
-        return solicitud;
     }
 
     public boolean servAnularSolicitud(int solicitudId, int usuarioID){
@@ -415,17 +316,20 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         return lista;
     }
 
-    public boolean servActualizarSolicitud(Integer idSolicitud,ActualizarSolicitudDTO dto, String rol, List<MultipartFile> nuevosAdjuntos){
+    public boolean servActualizarSolicitud(Integer idSolicitud, int usuarioId,ActualizarSolicitudDTO dto, String rol, List<MultipartFile> nuevosAdjuntos){
         //Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElse(null);
-        Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
+        Solicitud solicitud = repoSolicitud.findById(idSolicitud).orElseThrow(() -> new ResponseStatusException(
+        HttpStatus.NOT_FOUND,
+        "Solicitud no encontrada"
+    ));
         
         String estadoAnterior = solicitud.getEstado();
         String nuevoEstado = dto.getEstado();
         
         // 1. VALIDACIÓN DE PERMISOS POR ROL
-                if ("ESTUDIANTE".equalsIgnoreCase(rol)) {
+                if ("ESTUDIANTE".equalsIgnoreCase(rol) && solicitud.getSolicitante().getIdUsuario() == usuarioId) {
                     // El estudiante SOLO puede corregir si la solicitud está OBSERVADA
-                    if (!"OBSERVADO".equalsIgnoreCase(solicitud.getEstado())) {
+                    if (!"OBSERVADO".equalsIgnoreCase(dto.getEstado())) {
                         return false; 
                     }
                     // Forzamos que el estado pase a PENDIENTE al subsanar
@@ -458,6 +362,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
                 h.setComentario(dto.getComentario());
                 h.setFechaCambio(new Date());
                 h.setSolicitud(solicitud);
+                h.setUsuarioResponsable(solicitud.getSolicitante());
 
                 solicitud.getHistorial().add(h);
 
