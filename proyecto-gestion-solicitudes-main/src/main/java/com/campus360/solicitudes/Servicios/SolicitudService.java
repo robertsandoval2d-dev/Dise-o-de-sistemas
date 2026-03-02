@@ -174,7 +174,9 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     private void gestionarOrdenDePago(Solicitud solicitud, BigDecimal costo) { 
         // El Adapter ahora se encarga de verificar si el costo es cero y armar el Request 
         if (!pagoAdapter.procesarPago(solicitud.getIdSolicitud(), costo)) { 
-            throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud."); } }
+            throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud."); 
+        } 
+    }
 
     
     private void sincronizarConAprobaciones(Solicitud solicitud, Usuario solicitante, List<MultipartFile> archivos) { 
