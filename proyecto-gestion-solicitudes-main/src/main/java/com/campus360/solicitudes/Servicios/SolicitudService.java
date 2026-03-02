@@ -219,23 +219,23 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
         // Usamos .equalsIgnoreCase por si el frontend manda "aprobador" en minúsculas
         if ("APROBADOR".equalsIgnoreCase(rol) && "PENDIENTE".equalsIgnoreCase(solicitud.getEstado())) {
             
-            solicitud.setEstado("EN PROCESO");
+            solicitud.setEstado("EN_PROCESO");
             
             
             // Opcional: Aquí podrías registrar en tu tabla de historial
             HistorialEstado h = new HistorialEstado();
             h.setEstadoAnterior("PENDIENTE");
-            h.setEstadoNuevo("EN PROCESO");
+            h.setEstadoNuevo("EN_PROCESO");
             h.setComentario("Visto por el aprobador");
             h.setFechaCambio(new Date());
             h.setSolicitud(solicitud);
 
             solicitud.getHistorial().add(h);
-            solicitud.actualizarSeguimientoSLA("EN PROCESO");
+            solicitud.actualizarSeguimientoSLA("EN_PROCESO");
 
             repoSolicitud.save(solicitud);
 
-            System.out.println("Estado actualizado a EN PROCESO por acceso de Aprobador");
+            System.out.println("Estado actualizado a EN_PROCESO por acceso de Aprobador");
         }
         if("ESTUDIANTE".equalsIgnoreCase(rol) && solicitud.getSolicitante().getIdUsuario() != usuarioId){
             return null; // No tiene permiso para ver esta solicitud
@@ -361,6 +361,7 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
 
                 // 4. PERSISTENCIA
                 repoSolicitud.save(solicitud);
+                sincronizarConAprobaciones(solicitud, solicitud.getSolicitante(), nuevosAdjuntos);
                 return true;
      }
      

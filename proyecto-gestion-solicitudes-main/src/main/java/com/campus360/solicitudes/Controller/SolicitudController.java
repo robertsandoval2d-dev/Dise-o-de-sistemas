@@ -141,12 +141,10 @@ public class SolicitudController {
         // String rol = jwtUtil.obtenerRol(token);
        
         //  Para fines de prueba, si no se envía el token, se asignan valores por defecto. En producción, esto debería ser un error.
-        /*int usuarioId = 1; 
+        int usuarioId = 1; 
         String nombre = "Cesar Alberto Pérez García";
-        String rol = "ESTUDIANTE";*/
-        int usuarioId = 2; 
-        String nombre = "Juan Alfonso Rodríguez Martínez";
         String rol = "ESTUDIANTE";
+
         try {
             // 2. Llamar al servicio con el DTO y la lista de objetos Adjunto
             boolean exito = servSolicitud.servRegistrarSolicitud(usuarioId, nombre, rol, dto,archivos);
