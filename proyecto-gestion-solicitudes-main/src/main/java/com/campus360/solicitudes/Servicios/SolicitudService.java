@@ -11,9 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.campus360.solicitudes.Client.AprobacionesClient;
-import com.campus360.solicitudes.Client.CatalogoClient;
-import com.campus360.solicitudes.Client.PagoClient;
+ 
+import com.campus360.solicitudes.Adapter.IAprobacionesAdapter; 
+import com.campus360.solicitudes.Adapter.ICatalogoAdapter; 
+import com.campus360.solicitudes.Adapter.IPagoAdapter;
 import com.campus360.solicitudes.DTOs.ActualizarSolicitudDTO;
 import com.campus360.solicitudes.DTOs.GenerarOrdenPagoRequest;
 import com.campus360.solicitudes.DTOs.RequisitoDTO;
@@ -49,11 +50,12 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
 
     // Inyección de Clientes Externos
     @Autowired
-    private CatalogoClient catalogoClient;
+    private ICatalogoAdapter catalogoAdapter;
     @Autowired
-    private PagoClient pagoClient;
+    private IPagoAdapter pagoAdapter;
     @Autowired
-    private AprobacionesClient aprobacionesClient;
+    private IAprobacionesAdapter aprobacionesAdapter;
+
 
     // Inyección de las dos fábricas
     @Autowired
@@ -66,13 +68,13 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     public SolicitudService() {
     }
     public SolicitudService(ISolicitudRepository repoSolicitud, IUsuarioRepository repoUsuario, IAlmacenamiento almacenamiento,
-                            CatalogoClient catalogoClient, PagoClient pagoClient, AprobacionesClient aprobacionesClient) {
+                            ICatalogoAdapter catalogoAdapter, IPagoAdapter pagoAdapter, IAprobacionesAdapter aprobacionesAdapter) {
         this.repoSolicitud = repoSolicitud;
         this.repoUsuario = repoUsuario;
         this.almacenamiento = almacenamiento;
-        this.catalogoClient = catalogoClient;
-        this.pagoClient = pagoClient;
-        this.aprobacionesClient = aprobacionesClient;
+        this.catalogoAdapter = catalogoAdapter;
+        this.pagoAdapter = pagoAdapter;
+        this.aprobacionesAdapter = aprobacionesAdapter;
     }
 
     @Transactional
@@ -100,15 +102,11 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
     }
 
     // --- MÉTODOS PRIVADOS DE APOYO ---
-
     private ServicioInfoResponse buscarServicioActivo(int servicioId) {
-        ServicioInfoResponse info = catalogoClient.obtenerServicio(servicioId);
-        if (info == null || !info.isActivo()) {
-            throw new RuntimeException("El servicio solicitado no existe o no está activo");
-        }
-        return info;
-    }
+        // Toda la validación de nulos y de activo ahora la hace el Adapter 
+            return catalogoAdapter.obtenerServicioActivo(servicioId); }
 
+   
     private void validarRequisitosDinamicos(ServicioInfoResponse info, SolicitudCreateDTO dto, List<MultipartFile> archivos) {
         if (info.getRequisitos() == null) return;
         // 1. Contamos cuántos archivos OBLIGATORIOS pide el catálogo
@@ -173,29 +171,22 @@ public class SolicitudService implements ISolicitudService/*, ISolicitudQuerySer
             solicitud.setAdjuntos(adjuntos);
         }
     }
+    private void gestionarOrdenDePago(Solicitud solicitud, BigDecimal costo) { 
+        // El Adapter ahora se encarga de verificar si el costo es cero y armar el Request 
+        if (!pagoAdapter.procesarPago(solicitud.getIdSolicitud(), costo)) { 
+            throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud."); } }
 
-    private void gestionarOrdenDePago(Solicitud solicitud, BigDecimal costo) {
-        if (costo != null && costo.compareTo(BigDecimal.ZERO) > 0) {
-            GenerarOrdenPagoRequest pagoRequest = new GenerarOrdenPagoRequest();
-            pagoRequest.setSolicitudId(solicitud.getIdSolicitud());
-            pagoRequest.setMonto(costo);
-
-            if (!pagoClient.generarOrden(pagoRequest)) {
-                throw new RuntimeException("El módulo de pagos no pudo procesar la solicitud.");
-            }
-        }
-    }
-
-    private void sincronizarConAprobaciones(Solicitud solicitud, Usuario solicitante, List<MultipartFile> archivos) {
-        SolicitudAprobacionDTO dto = new SolicitudAprobacionDTO();
-        dto.setIdSolicitud(solicitud.getIdSolicitud());
-        dto.setEstado(solicitud.getEstado());
-        dto.setFechaCreacion(new Date());
-        dto.setNombreSolicitante(solicitante.getNombre());
-
-        if (!aprobacionesClient.enviarSolicitudConAdjuntos(dto, archivos)) {
+    
+    private void sincronizarConAprobaciones(Solicitud solicitud, Usuario solicitante, List<MultipartFile> archivos) { 
+        SolicitudAprobacionDTO dto = new SolicitudAprobacionDTO(); 
+        dto.setIdSolicitud(solicitud.getIdSolicitud()); 
+        dto.setEstado(solicitud.getEstado()); 
+        dto.setFechaCreacion(new Date()); 
+        dto.setNombreSolicitante(solicitante.getNombre()); 
+        // Llamada limpia al Adapter 
+        if (!aprobacionesAdapter.sincronizarSolicitud(dto, archivos)) { 
             throw new RuntimeException("No se pudo sincronizar con el módulo de aprobaciones");
-        }
+        } 
     }
 
 // @Transactional
