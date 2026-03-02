@@ -48,44 +48,14 @@ public class SolicitudController {
 
     @Autowired
     private SolicitudService servSolicitud;
-
-    @Autowired
-    private ISolicitudService command;
-    // @Autowired
-    // private ISolicitudQueryService query;
     @Autowired
     private final JwtUtil jwtUtil;
 
 
     //Constructor
-    public SolicitudController(ISolicitudService solicitudCommandService, JwtUtil jwtUtil){
-        this.command = solicitudCommandService;
-        //this.query = solicitudQueryService;
+    public SolicitudController(JwtUtil jwtUtil){
         this.jwtUtil = jwtUtil;
     }
-
-
-    //GETTERS Y SETTERS
-
-
-      public ISolicitudService getCommand() {
-        return command;
-    }
-
-
-    public void setCommand(ISolicitudService command) {
-        this.command = command;
-    }
-
-    // public ISolicitudQueryService getQuery() {
-    //     return query;
-    // }
-
-    // public void setQuery(ISolicitudQueryService query) {
-    //     this.query = query;
-    // }
-
-
 
     //APIS
 
