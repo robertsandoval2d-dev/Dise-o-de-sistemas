@@ -27,4 +27,16 @@ public class RequisitoDTO {
         return obligatorio;
     }
 
+    public void setCampo(String campo) {
+        this.campo = campo;
+    }
+
+    public void setTipo(String tipo) {
+        this.tipo = tipo;
+    }
+
+    public void setObligatorio(boolean obligatorio) {
+        this.obligatorio = obligatorio;
+    }
+   
 }
