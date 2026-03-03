@@ -57,6 +57,7 @@ public class SolicitudController {
         this.jwtUtil = jwtUtil;
     }
 
+
     //APIS
 
     @GetMapping("usuario/listar")
@@ -156,7 +157,10 @@ public class SolicitudController {
             else{
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(" {\"mensaje\": \"No se pudo eliminar la solicitud\"}");
             }
-        } catch (Exception e) {
+        }catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(" {\"error\": \"" + e.getMessage() + "\"}");
+        } 
+        catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(" {\"error\": \"No autorizado\"}");
         }
     }

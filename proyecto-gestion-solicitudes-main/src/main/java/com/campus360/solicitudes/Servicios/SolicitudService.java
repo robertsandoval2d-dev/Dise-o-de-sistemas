@@ -172,13 +172,11 @@ public class SolicitudService implements ISolicitudService {
 
         //Validar que la solicitud existe
         if(porEliminar == null){
-            System.out.println("La solicitud con ID " + solicitudId + " no existe.");
-            return false;
+            throw new RuntimeException("La solicitud con ID " + solicitudId + " no existe.");
         }
         //Validar que es la solicitud correcta del usuario
         if(porEliminar.getSolicitante().getIdUsuario() != usuarioID) {
-            System.out.println("El usuario con ID " + usuarioID + " no es el dueño de la solicitud con ID " + solicitudId);
-            return false; //No es el dueño de la solicitud
+            throw new RuntimeException("El usuario con no es el dueño de la solicitud con ID " + solicitudId);
         }
         
         String estado=porEliminar.getEstado();
@@ -188,8 +186,7 @@ public class SolicitudService implements ISolicitudService {
             return true;
         }
         else{
-            System.out.println("La solicitud con ID " + solicitudId + " no se puede anular porque su estado es " + estado);
-            return false;
+            throw new RuntimeException("La solicitud con ID " + solicitudId + " no se puede anular porque su estado es " + estado);
          }  
      }
 
