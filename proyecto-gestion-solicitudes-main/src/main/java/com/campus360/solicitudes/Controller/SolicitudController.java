@@ -79,7 +79,7 @@ public class SolicitudController {
     }
 
 
-    @GetMapping("solicitud/{id}")
+    @GetMapping("consultar/{id}")
     public ResponseEntity<?> consultarSolicitud(@PathVariable Integer id, @RequestHeader(value = "Authorization", required = false) String authHeader){
         //String token = extraerToken(authHeader);
 
