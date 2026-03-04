@@ -217,6 +217,10 @@ public class SolicitudService implements ISolicitudService {
                     }
                     // Forzamos que el estado pase a PENDIENTE al subsanar
                     nuevoEstado = "PENDIENTE";
+                    List<Adjunto> adjuntosExistentes = solicitud.getAdjuntos();
+                    for (Adjunto adj : adjuntosExistentes) {
+                        adj.setEstado("INACTIVO");
+                    }
                 } 
                 else if (!"APROBADOR".equalsIgnoreCase(rol)) {
                     // Si no es ni estudiante ni aprobador, no tiene permiso
