@@ -31,7 +31,7 @@ public class SolicitudDTO {
         this.prioridad = sol.getPrioridad();
         this.fechaCreacion = sol.getFechaCreacion();
         this.nombreSolicitante = sol.getSolicitante().getNombre();
-
+        this.fechaLimite = sol.getFechaLimite();
         this.indicadorSla = sol.calcularEstadoSlaAmigable(); 
         if ("PAUSADO".equals(this.indicadorSla)) {
         this.tiempoRestante = "Reloj detenido"; 
