@@ -1,1 +1,0 @@
-El proyecto se organiza en capas de dominio, repositorio, servicio y controlador con el objetivo de separar responsabilidades y facilitar el mantenimiento del sistema.
