@@ -176,7 +176,7 @@ public class SolicitudController {
     public ResponseEntity<?> actualizarSolicitud(
         @RequestHeader(value = "Authorization", required = false) String authHeader,
         @PathVariable Integer id, 
-        @RequestPart("datos") ActualizarSolicitudDTO dto,
+        @RequestPart(value="datos",required = false) ActualizarSolicitudDTO dto,
         @RequestPart(value = "archivos", required = false) List<MultipartFile> archivos) {
 
         //String token = extraerToken(authHeader);
